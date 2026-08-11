@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { IndianRupee, CheckCircle2, Clock, Loader2, Users, TrendingUp, AlertCircle } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
 interface PayoutRow {
   id: string;
@@ -207,3 +207,4 @@ export default function AffiliatePanel() {
     </div>
   );
 }
+

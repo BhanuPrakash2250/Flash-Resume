@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
   try {
     const [statsRes, presenceRes] = await Promise.all([
       fetch(`${backendUrl}/api/public/review-stats`, { next: { revalidate: 300 } }),
@@ -23,3 +23,4 @@ export async function GET() {
     return NextResponse.json(null);
   }
 }
+

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Users, FileText, ShoppingCart, CheckCircle } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
 export default function FunnelChart() {
   const [stats, setStats] = useState({ landing: 0, result: 0, purchases: 0 });
@@ -147,3 +147,4 @@ export default function FunnelChart() {
     </div>
   );
 }
+

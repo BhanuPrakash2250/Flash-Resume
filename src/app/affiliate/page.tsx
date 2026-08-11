@@ -13,7 +13,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://flashresume.in";
 const COMMISSION_RATE = 30;
 
@@ -644,3 +644,4 @@ export default function AffiliatePage() {
     </div>
   );
 }
+

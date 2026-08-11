@@ -17,7 +17,7 @@ export default function FeedbackModal({ userId, sessionId, onClose, onSubmitSucc
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const API = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
   const handleSubmit = async () => {
     // Inline validation — show message instead of silently blocking
@@ -141,3 +141,4 @@ export default function FeedbackModal({ userId, sessionId, onClose, onSubmitSucc
     </div>
   );
 }
+

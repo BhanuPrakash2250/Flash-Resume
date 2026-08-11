@@ -2,7 +2,7 @@
 // All backend calls with error handling and timeouts
 import { supabase } from "./supabase";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
 // ────────────────────────────────────────────────────────────────────────────
 // STEP 1: Parse Resume (PDF Upload or Text Paste)
@@ -46,6 +46,7 @@ export async function parseResume(file: File): Promise<ParseResponse> {
 
     if (!res.ok) {
       const errorText = await res.text();
+      console.error("API request failed:", { url: `${BASE}/api/parse`, status: res.status, statusText: res.statusText, errorText });
       throw new Error(`Parse failed (${res.status}): ${errorText}`);
     }
 
@@ -54,6 +55,7 @@ export async function parseResume(file: File): Promise<ParseResponse> {
     if (err.name === "TimeoutError") {
       throw new Error("Request timed out. Please try again.");
     }
+    console.error("API request failed:", err);
     throw new Error(err.message || "Failed to parse resume. Please try again.");
   }
 }
@@ -116,6 +118,7 @@ export async function analyzeResume(
 
     if (!res.ok) {
       const errorText = await res.text();
+      console.error("API request failed:", { url: `${BASE}/api/analyze`, status: res.status, statusText: res.statusText, errorText });
       throw new Error(`Analysis failed (${res.status}): ${errorText}`);
     }
 
@@ -124,6 +127,7 @@ export async function analyzeResume(
     if (err.name === "TimeoutError") {
       throw new Error("Analysis timed out. Please try again.");
     }
+    console.error("API request failed:", err);
     throw new Error(err.message || "Failed to analyze resume. Please try again.");
   }
 }
@@ -242,6 +246,7 @@ export async function generateResume(
 
     if (!res.ok) {
       const errorText = await res.text();
+      console.error("API request failed:", { url: `${BASE}/api/generate`, status: res.status, statusText: res.statusText, errorText });
       throw new Error(`Generation failed (${res.status}): ${errorText}`);
     }
 
@@ -250,6 +255,7 @@ export async function generateResume(
     if (err.name === "TimeoutError") {
       throw new Error("Generation timed out. The AI is taking longer than expected. Please try again.");
     }
+    console.error("API request failed:", err);
     throw new Error(err.message || "Failed to generate resume. Please try again.");
   }
 }

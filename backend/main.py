@@ -26,6 +26,7 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "https://flashresume.in",
     "https://www.flashresume.in",
+    "https://flash-resume-seven.vercel.app",
 ]
 
 FRONTEND_URL = os.getenv("FRONTEND_URL")

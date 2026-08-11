@@ -28,7 +28,7 @@ export default function PresenceTracker() {
 
     // Backend Peak Tracking Heartbeat — pings Render backend every 5 minutes.
     // The backend counts active sessions in-memory and saves peak to system_metrics table.
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
     const pingBackend = () => {
       fetch(`${API_URL}/api/presence/ping`, {
         method: "POST",
@@ -49,3 +49,4 @@ export default function PresenceTracker() {
 
   return null;
 }
+

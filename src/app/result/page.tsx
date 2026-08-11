@@ -413,7 +413,7 @@ export default function ResultPage() {
       // before anything has been saved to localStorage yet.
       if (!parsed && sessionId) {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
           const res = await fetch(`${apiUrl}/api/sessions/${sessionId}`);
           if (res.ok) {
             const data = await res.json();
@@ -587,7 +587,7 @@ export default function ResultPage() {
     // Track /result page visit for funnel analytics (mirrors landing page tracking)
     // Fire-and-forget — never blocks the user, production only
     if (process.env.NODE_ENV === "production") {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
       const urlParams = new URLSearchParams(window.location.search);
       const sessionId = urlParams.get("session_id") || null;
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -670,7 +670,7 @@ export default function ResultPage() {
       const activeUserId = session?.user?.id || currentUserId;
 
       if (activeUserId) {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
         const isMobile = window.matchMedia?.("(pointer: coarse)")?.matches ?? /Mobi|Android|iPhone/i.test(navigator.userAgent);
         const deviceType = isMobile ? "mobile" : "desktop";
 
@@ -3020,3 +3020,4 @@ const testResponse = await fetch(`${apiUrl}/health`, {
     </div>
   );
 }
+

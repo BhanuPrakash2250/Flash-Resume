@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Cpu, RefreshCw, CheckCircle, AlertCircle, Clock } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
 interface LLMUsageRow {
   id: string;
@@ -173,3 +173,4 @@ export default function LLMPanel() {
     </div>
   );
 }
+

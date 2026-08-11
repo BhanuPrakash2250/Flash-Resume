@@ -16,7 +16,7 @@ import FeedbackPanel from "./components/FeedbackPanel";
 import AffiliatePanel from "./components/AffiliatePanel";
 // supabase import removed — Realtime channel replaced with lightweight backend poll
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
 const NAV_ITEMS = [
   { id: "overview",   label: "Overview",       icon: LayoutDashboard },
@@ -419,3 +419,4 @@ export default function AdminPage() {
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
 export async function GET(
   request: NextRequest,

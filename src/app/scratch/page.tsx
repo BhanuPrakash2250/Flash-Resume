@@ -401,7 +401,7 @@ export default function ScratchPage() {
     // Both /result and /scratch represent the same funnel step: "reached the resume editor".
     // Fire-and-forget — never blocks the user, production only.
     if (process.env.NODE_ENV === "production") {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
       supabase.auth.getSession().then(({ data: { session } }) => {
         fetch(`${apiUrl}/api/analytics/track-visit`, {
           method: "POST",
@@ -573,7 +573,7 @@ export default function ScratchPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const activeUserId = session?.user?.id || currentUserId;
       if (activeUserId) {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
         const isMobile = window.matchMedia?.("(pointer: coarse)")?.matches ?? /Mobi|Android|iPhone/i.test(navigator.userAgent);
         const deviceType = isMobile ? "mobile" : "desktop";
         
@@ -2481,3 +2481,4 @@ export default function ScratchPage() {
     </div>
   );
 }
+

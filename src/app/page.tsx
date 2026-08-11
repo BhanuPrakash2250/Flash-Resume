@@ -221,7 +221,7 @@ export default function App() {
       // Track visit AFTER auth resolves so user_id is known for dev filtering.
       // Auth reads from localStorage — instant. Tracking is fire-and-forget, never blocks the user.
       if (process.env.NODE_ENV === "production") {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
         fetch(`${apiUrl}/api/analytics/track-visit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -263,7 +263,7 @@ export default function App() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/user/apply-referral`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com"}/api/user/apply-referral`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1865,3 +1865,4 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
     </div>
   );
 }
+

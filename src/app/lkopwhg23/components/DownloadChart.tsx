@@ -27,7 +27,7 @@ interface AnalyticsData {
   trend: TrendPoint[];
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 
 const TIME_FILTERS = [
   { id: "today", label: "Today" },
@@ -270,3 +270,4 @@ export default function DownloadChart() {
     </div>
   );
 }
+
