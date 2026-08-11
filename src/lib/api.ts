@@ -2,7 +2,55 @@
 // All backend calls with error handling and timeouts
 import { supabase } from "./supabase";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
+function getApiBase() {
+  const candidate = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!candidate) return "https://flash-resume.onrender.com";
+
+  try {
+    const parsed = new URL(candidate);
+    return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`.replace(/\/+$/, "");
+  } catch (err) {
+    console.warn("[API] Invalid NEXT_PUBLIC_API_URL, falling back to production backend:", candidate, err);
+    return "https://flash-resume.onrender.com";
+  }
+}
+
+const BASE = getApiBase();
+
+function buildUrl(path: string) {
+  const trimmed = path.replace(/^\/+/, "");
+  return `${BASE}/${trimmed}`;
+}
+
+async function safeFetch(input: RequestInfo, init?: RequestInit, timeoutMs = 0) {
+  const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+  const method = init?.method || (typeof input === "string" ? "GET" : input instanceof Request ? input.method : "GET");
+  const controller = new AbortController();
+  const timeout = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+
+  try {
+    const response = await fetch(input, {
+      ...init,
+      mode: "cors",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[API ERROR] Request failed", { url, method, status: response.status, statusText: response.statusText, errorText });
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+    return response;
+  } catch (err: any) {
+    console.error("[NETWORK ERROR] API request failed", { url, method, error: err?.message || err });
+    if (err?.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw err;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // STEP 1: Parse Resume (PDF Upload or Text Paste)
@@ -38,11 +86,10 @@ export async function parseResume(file: File): Promise<ParseResponse> {
   formData.append("file", file);
 
   try {
-    const res = await fetch(`${BASE}/api/parse`, {
+    const res = await safeFetch(buildUrl("/api/parse"), {
       method: "POST",
       body: formData,
-      signal: AbortSignal.timeout(30000), // 30s timeout
-    });
+    }, 30000);
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -105,7 +152,7 @@ export async function analyzeResume(
       headers["Authorization"] = `Bearer ${session.access_token}`;
     }
 
-    const res = await fetch(`${BASE}/api/analyze`, {
+    const res = await safeFetch(buildUrl("/api/analyze"), {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -113,8 +160,7 @@ export async function analyzeResume(
         job_description,
         preferred_model
       }),
-      signal: AbortSignal.timeout(120000), // 120s timeout for backend LLM analysis
-    });
+    }, 120000);
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -237,12 +283,11 @@ export async function generateResume(
       headers["Authorization"] = `Bearer ${session.access_token}`;
     }
 
-    const res = await fetch(`${BASE}/api/generate`, {
+    const res = await safeFetch(buildUrl("/api/generate"), {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(120000), // 120s timeout for backend generation
-    });
+    }, 120000);
 
     if (!res.ok) {
       const errorText = await res.text();

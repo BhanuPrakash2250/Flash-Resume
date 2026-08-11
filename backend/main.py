@@ -10,7 +10,7 @@ from pydantic import BaseModel
 # Load environment variables before importing routers that depend on them
 load_dotenv()
 
-from routers import parse, analyze, generate, payments, admin, sessions, feedback, affiliate
+from routers import parse, analyze, generate, admin, sessions, feedback, affiliate
 import supabase_client as sc
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -42,6 +42,8 @@ if FRONTEND_URL:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+
+    allow_origin_regex=r"^https://(?:.+\.)?(?:vercel\.app|flashresume\.in)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -60,7 +62,6 @@ logging.getLogger("uvicorn.access").addFilter(_SuppressHealthPolls())
 app.include_router(parse.router, prefix="/api")
 app.include_router(analyze.router, prefix="/api")
 app.include_router(generate.router, prefix="/api")
-app.include_router(payments.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")

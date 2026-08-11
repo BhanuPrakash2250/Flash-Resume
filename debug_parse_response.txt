@@ -1,0 +1,1 @@
+{"detail":"Error processing file: We couldn't read the text in this file. Please upload a standard digital PDF or Word document instead of a scanned image."}
