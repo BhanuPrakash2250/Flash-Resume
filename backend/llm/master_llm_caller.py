@@ -43,7 +43,7 @@ async def _trip_circuit(circuit_key: str, error_type: str):
     elif error_type == "402":
         cooldown = _get_402_cooldown_secs()
     elif error_type == "401":
-        cooldown = 86400
+        cooldown = 900 
     elif error_type == "410":  # Handle 410 Gone errors (obsolete models)
         cooldown = 30  # Short cooldown for temporary issues
     else:
@@ -363,7 +363,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             else:
                 models = [item]
             for provider, model_id, key_label in models:
-                all_candidate_circuit_keys.append(f"{provider}_{model_id}_{key_label}")
+                all_candidate_circuit_keys.append(f"{provider}_{key_label}")
 
         skip_tripped = False
         if not is_explicit_preferred and all_candidate_circuit_keys:
