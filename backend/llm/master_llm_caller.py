@@ -13,12 +13,13 @@ _R1_MAX_TOKENS = 8000
 _R2_MAX_TOKENS = 8000
 
 # Per-model request ceiling and overall fallback ceiling
-_LLM_CALL_TIMEOUT = 45
+_LLM_CALL_TIMEOUT = 30  # Reduced from 45s for faster fallback
 _LLM_TOTAL_TIMEOUT_R1 = 120
 _LLM_TOTAL_TIMEOUT_R2 = 150
 
 _COOLDOWN_SECS_429 = 120
 _circuit_tripped = {}
+_circuit_half_open = {}  # Track half-open state for retries
 
 def _get_402_cooldown_secs() -> int:
     import datetime
@@ -42,6 +43,8 @@ async def _trip_circuit(circuit_key: str, error_type: str):
         cooldown = _get_402_cooldown_secs()
     elif error_type == "401":
         cooldown = 86400
+    elif error_type == "410":  # Handle 410 Gone errors (obsolete models)
+        cooldown = 30  # Short cooldown for temporary issues
     else:
         cooldown = 300
 
@@ -64,7 +67,7 @@ async def _trip_circuit(circuit_key: str, error_type: str):
             )
         except Exception:
             pass
-    
+
     if sc.supabase:
         try:
             await asyncio.wait_for(
@@ -78,7 +81,6 @@ async def _trip_circuit(circuit_key: str, error_type: str):
             )
         except Exception:
             pass
-
 
 async def _reset_circuit(circuit_key: str):
     provider, model_repr, key_label = circuit_key.rsplit("_", 2)
@@ -100,14 +102,21 @@ async def _reset_circuit(circuit_key: str):
 
     print(f"[{tripped_key}] Circuit reset; provider key is now eligible again")
 
-
-def _is_tripped(model_id: str, db_tripped_keys: set = None) -> bool:
-    if db_tripped_keys and model_id in db_tripped_keys:
+def _is_tripped(circuit_key: str, db_tripped_keys: set = None) -> bool:
+    if db_tripped_keys and circuit_key in db_tripped_keys:
         return True
-    if model_id not in _circuit_tripped:
+    if circuit_key not in _circuit_tripped:
         return False
-    if time.time() > _circuit_tripped[model_id]:
-        del _circuit_tripped[model_id]
+    if time.time() > _circuit_tripped[circuit_key]:
+        del _circuit_tripped[circuit_key]
+        return False
+    return True
+
+def _is_half_open(circuit_key: str) -> bool:
+    if circuit_key not in _circuit_half_open:
+        return False
+    if time.time() > _circuit_half_open[circuit_key]:
+        del _circuit_half_open[circuit_key]
         return False
     return True
 
@@ -124,7 +133,10 @@ def _get_rate_limit_type(attempts):
         if re.search(r'\b401\b', status) or re.search(r'\b403\b', status) or \
            any(x in status for x in ["Unauthorized", "invalid_api_key", "Forbidden"]):
             return "401"
+        if re.search(r'\b410\b', status) or "Gone" in status or "not found" in status.lower():
+            return "410"
     return None
+
 # ─────────────────────────────────────────────────────────────────────────────
 # IMPORTANT: In caller function names, r1/r2 = API ACCOUNT NUMBER, not request type.
 #   call_single_mistral_r1 → uses MISTRAL_R1_API_KEY  (Account / Key 1)
@@ -172,10 +184,6 @@ POOL_2 = [
     ("mistral",    "mistral-small-2506",                           "Key 3"),
     ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast",     "Key 1"),
     ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast",     "Key 2"),
-    ("nvidia",     "mistralai/ministral-14b-instruct-2512",        "Key 1"),
-    ("nvidia",     "mistralai/ministral-14b-instruct-2512",        "Key 2"),
-    ("cloudflare", "@cf/mistralai/mistral-small-3.1-24b-instruct", "Key 1"),
-    ("cloudflare", "@cf/mistralai/mistral-small-3.1-24b-instruct", "Key 2"),
     ("nvidia",     "mistralai/mistral-nemotron",                   "Key 1"),
     ("nvidia",     "mistralai/mistral-nemotron",                   "Key 2"),
 ]
@@ -239,7 +247,7 @@ async def _ensure_rr_initialized():
                     print(f"[RR] Resumed from DB — pool1={_pool1_idx}, pool2={_pool2_idx}")
             except Exception as e:
                 print(f"[RR] DB load failed, using clock seed: {e}")
-        
+
         if _pool1_idx is None:
             _pool1_idx = p1_fallback
         if _pool2_idx is None:
@@ -260,7 +268,7 @@ async def _advance_rr_index(pool_type: int, pool_size: int, winner_idx: int):
     Advances the round-robin counter to the model after the one that succeeded.
     """
     next_idx = (winner_idx + 1) % pool_size
-    
+
     global _pool1_idx, _pool2_idx
     async with _rr_lock:
         if pool_type == 1:
@@ -304,7 +312,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
     async with _LLM_SEMAPHORE:
         max_tokens = _R1_MAX_TOKENS if is_r1 else _R2_MAX_TOKENS
         all_attempts = []
-        
+
         # 1. Fetch DB tripped keys
         db_tripped_keys = set()
         if sc.supabase:
@@ -330,7 +338,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             chain = [
                 ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "Key 1"),
                 ("mistral", "mistral-medium-3.5", "Key 1"),
-                ("deepseek", "deepseek-v4-flash", "Key 1"),
+                ("deepseek", "deepseek-v2", "Key 1"),  # Fixed: replaced with supported model
             ]
             is_explicit_preferred = True
         elif is_explicit_preferred:
@@ -342,7 +350,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             chain.append((provider, base_model_id, key_label))
         else:
             # Universal chain: R1, R2, and Self-Edit all start at DeepSeek
-            chain.append(("deepseek", "deepseek-v4-flash", "Key 1"))
+            chain.append(("deepseek", "deepseek-v2", "Key 1"))  # Fixed: replaced with supported model
             chain.append(("POOL", 1, None))
             chain.append(("POOL", 2, None))
 
@@ -419,7 +427,6 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
                     att["model"] = f"{model_id} - {key_label}"
                 all_attempts.extend(result.get("attempts", []))
 
-    
     if sc.supabase:
         async def _log_failure():
             try:
@@ -435,7 +442,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             except Exception:
                 pass
         asyncio.create_task(_log_failure())
-    
+
     return {"success": False, "all_attempts": all_attempts}
 
 def _finalize(result: dict, provider: str, model_id: str, r_type: str, circuit_key: str | None = None) -> dict:
