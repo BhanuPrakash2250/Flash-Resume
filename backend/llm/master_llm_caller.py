@@ -153,40 +153,37 @@ def _get_rate_limit_type(attempts):
 # ─────────────────────────────────────────────────────────────────────────────
 
 POOL_1 = [
-    ("mistral", "mistral-medium-3.5",                       "Key 1"),
-    ("mistral", "mistral-medium-3.5",                       "Key 2"),
-    ("mistral", "mistral-medium-3.5",                       "Key 3"),
-    ("mistral", "mistral-medium-2604",                      "Key 1"),
-    ("mistral", "mistral-medium-2604",                      "Key 2"),
-    ("mistral", "mistral-medium-2604",                      "Key 3"),
-    ("mistral", "mistral-medium-latest",                    "Key 1"),
-    ("mistral", "mistral-medium-latest",                    "Key 2"),
-    ("mistral", "mistral-medium-latest",                    "Key 3"),
-    ("mistral", "mistral-large-2512",                       "Key 1"),
-    ("mistral", "mistral-large-2512",                       "Key 2"),
-    ("mistral", "mistral-large-2512",                       "Key 3"),
-    ("mistral", "mistral-medium-2508",                      "Key 1"),
-    ("mistral", "mistral-medium-2508",                      "Key 2"),
-    ("mistral", "mistral-medium-2508",                      "Key 3"),
-    ("mistral", "mistral-large-latest",                     "Key 1"),
-    ("mistral", "mistral-large-latest",                     "Key 2"),
-    ("mistral", "mistral-large-latest",                     "Key 3"),
-]
+    ("mistral", "mistral-medium-latest", "Key 1"),
+    ("mistral", "mistral-medium-latest", "Key 2"),
+    ("mistral", "mistral-medium-latest", "Key 3"),
+
+    ("mistral", "mistral-large-2512", "Key 1"),
+    ("mistral", "mistral-large-2512", "Key 2"),
+    ("mistral", "mistral-large-2512", "Key 3"),
+
+    ("mistral", "mistral-large-latest", "Key 1"),
+    ("mistral", "mistral-large-latest", "Key 2"),
+    ("mistral", "mistral-large-latest", "Key 3"),
+
+    ("mistral", "mistral-medium-3-5", "Key 1"),
+    ("mistral", "mistral-medium-3-5", "Key 2"),
+    ("mistral", "mistral-medium-3-5", "Key 3"),
+ ]
 
 POOL_2 = [
-    ("ministral",  "ministral-14b-latest",                         "Key 1"),
-    ("ministral",  "ministral-14b-latest",                         "Key 2"),
-    ("ministral",  "ministral-14b-latest",                         "Key 3"),
-    ("mistral",    "mistral-small-latest",                         "Key 1"),
-    ("mistral",    "mistral-small-latest",                         "Key 2"),
-    ("mistral",    "mistral-small-latest",                         "Key 3"),
-    ("mistral",    "mistral-small-2506",                           "Key 1"),
-    ("mistral",    "mistral-small-2506",                           "Key 2"),
-    ("mistral",    "mistral-small-2506",                           "Key 3"),
-    ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast",     "Key 1"),
-    ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast",     "Key 2"),
-    ("nvidia",     "mistralai/mistral-nemotron",                   "Key 1"),
-    ("nvidia",     "mistralai/mistral-nemotron",                   "Key 2"),
+    ("ministral", "ministral-14b-latest", "Key 1"),
+    ("ministral", "ministral-14b-latest", "Key 2"),
+    ("ministral", "ministral-14b-latest", "Key 3"),
+
+    ("mistral", "mistral-small-latest", "Key 1"),
+    ("mistral", "mistral-small-latest", "Key 2"),
+    ("mistral", "mistral-small-latest", "Key 3"),
+
+    ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "Key 1"),
+    ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "Key 2"),
+
+    ("nvidia", "mistralai/mistral-nemotron", "Key 1"),
+    ("nvidia", "mistralai/mistral-nemotron", "Key 2"),
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -339,7 +336,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             chain = [
                 ("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "Key 1"),
                 ("mistral", "mistral-medium-3.5", "Key 1"),
-                ("deepseek", "deepseek-v2", "Key 1"),  # Fixed: replaced with supported model
+               ("deepseek", "deepseek-v4-flash", "Key 1")  # Fixed: replaced with supported model
             ]
             is_explicit_preferred = True
         elif is_explicit_preferred:
@@ -351,7 +348,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             chain.append((provider, base_model_id, key_label))
         else:
             # Universal chain: R1, R2, and Self-Edit all start at DeepSeek
-            chain.append(("deepseek", "deepseek-v2", "Key 1"))  # Fixed: replaced with supported model
+            chain.append(("deepseek", "deepseek-v4-flash", "Key 1"))  # Fixed: replaced with supported model
             chain.append(("POOL", 1, None))
             chain.append(("POOL", 2, None))
 
