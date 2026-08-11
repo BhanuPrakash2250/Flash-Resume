@@ -1,0 +1,572 @@
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+  Link,
+  Font,
+} from "@react-pdf/renderer";
+import type { TemplateV1 } from "@/lib/api";
+
+Font.register({
+  family: "Computer Modern",
+  fonts: [
+    { src: "/fonts/cmu-serif-500-roman.ttf" },
+    { src: "/fonts/cmu-serif-700-roman.ttf", fontWeight: "bold" },
+    { src: "/fonts/cmu-serif-500-italic.ttf", fontStyle: "italic" },
+    { src: "/fonts/cmu-serif-700-italic.ttf", fontWeight: "bold", fontStyle: "italic" }
+  ]
+});
+
+// Template 3: Strict 1:1 mapping of Jake Gutierrez's raw LaTeX code.
+// Base font: 11pt. Small size: 10pt.
+// Margins: 0.5in all around.
+
+const styles = StyleSheet.create({
+  page: {
+    paddingTop: "0.5in",
+    paddingBottom: "0.5in",
+    paddingHorizontal: "0.65in",
+    fontSize: 11,
+    fontFamily: "Computer Modern",
+    lineHeight: 1.2,
+    color: "#000000",
+  },
+  // Heading Section
+  heading: {
+    marginBottom: 0,
+    textAlign: "center",
+  },
+  name: {
+    fontSize: 24, // \Huge at 11pt base
+    fontWeight: "bold", // \textbf
+    marginBottom: 0,
+    lineHeight: 1,
+  },
+  contactInfo: {
+    fontSize: 10, // \small
+    color: "#000",
+    marginTop: 4,
+  },
+  link: {
+    color: "#000",
+    textDecoration: "none",
+  },
+  // Section Headers
+  sectionTitle: {
+    fontSize: 12, // \large at 11pt base
+    textTransform: "uppercase",
+    marginTop: 8,
+    marginBottom: 3,
+  },
+  sectionDivider: {
+    borderBottom: "1pt solid #000", // \titlerule
+    marginBottom: 6,
+  },
+  summaryText: {
+    fontSize: 10,
+    textAlign: "justify",
+    marginBottom: 6,
+  },
+  // Common Row Layouts
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  // Item block (subheading)
+  itemBlock: {
+    marginBottom: 6, // \vspace{-7pt} simulation 
+  },
+  // Text Styles
+  textBold: {
+    fontWeight: "bold",
+  },
+  textItalic: {
+    fontStyle: "italic",
+  },
+  textSmall: {
+    fontSize: 10,
+  },
+  textSmallItalic: {
+    fontSize: 10,
+    fontStyle: "italic",
+  },
+  // Bullets
+  bullets: {
+    marginTop: 2,
+    paddingLeft: 12, // leftmargin=0.15in
+  },
+  bullet: {
+    fontSize: 10, // \small
+    marginBottom: 1.5, // \vspace{-2pt}
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  bulletPoint: {
+    width: 8,
+    marginRight: 4,
+    fontSize: 8,
+  },
+  bulletText: {
+    flex: 1,
+    textAlign: "justify",
+    fontSize: 10,
+  },
+  // Technical Skills
+  skillsContainer: {
+    paddingLeft: 12, // leftmargin=0.15in inside itemize
+  },
+  skillCategoryRow: {
+    flexDirection: "row",
+    marginBottom: 1.5,
+  },
+  skillLabel: {
+    fontSize: 10, // \small
+    fontWeight: "bold", // \textbf
+  },
+  skillList: {
+    fontSize: 10, // \small
+    flex: 1,
+    textAlign: "justify",
+  },
+});
+
+const JUNK_PATTERNS = /^(linkedin profile|github link|linkedin\.com\/in\/username|github\.com\/username|linkedin|github|link|url|n\/a|none|your.*(url|link|profile|username))$/i;
+function cleanDisplayUrl(val: string | undefined | null, fallback: string): string {
+  if (!val || JUNK_PATTERNS.test(val.trim())) return fallback;
+  return val.replace(/^https?:\/\//i, "");
+}
+
+function getValidUrl(val: string | undefined | null, fallback: string): string {
+  if (!val || JUNK_PATTERNS.test(val.trim())) return `https://${fallback}`;
+  const trimmed = val.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+interface ResumePDFProps {
+  resume: TemplateV1;
+  showHighlights?: boolean;
+  matchedKeywords?: string[];
+  missingKeywords?: string[];
+}
+
+function HighlightedText({ text, matched, missing, showHighlights, style }: { text: string; matched: string[]; missing: string[]; showHighlights: boolean; style?: any; }) {
+  if (!showHighlights || (!matched?.length && !missing?.length) || !text) {
+    return <Text style={style}>{text}</Text>;
+  }
+
+  const escapeRegex = (s: string) => s.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+
+  const wordTypes = new Map<string, "matched" | "missing">();
+  const allWords: string[] = [];
+
+  // Stop words to skip when generating single-word sub-phrases (avoids false positives)
+  const STOP_WORDS = new Set(["knowledge", "experience", "understanding", "proficiency", "skills", "ability", "strong", "good", "basic", "advanced", "demonstrated", "via", "using", "with", "and", "the", "for", "any", "one", "of", "in", "a", "an", "to", "on", "or", "is", "at", "by"]);
+
+  const normalizeKeywords = (keywords: string[]) => {
+    const result: string[] = [];
+    for (const k of keywords) {
+      // Step 1: Split OR groups (e.g., "java/python" → ["java", "python"])
+      const orParts = k.split(/\s*\/\s*|\s+[Oo][Rr]\s+|\|/).map(w => w.trim()).filter(Boolean);
+      for (const part of orParts) {
+        const words = part.split(/\s+/);
+        if (words.length <= 2) {
+          // Short keyword — add as-is (e.g., "REST APIs", "Docker", "CI/CD")
+          result.push(part);
+        } else {
+          // Multi-word phrase — generate sub-phrases (longest first, min 2 words)
+          // e.g., "NoSQL database knowledge" → ["NoSQL database knowledge", "NoSQL database", "database knowledge"]
+          for (let len = words.length; len >= 2; len--) {
+            for (let start = 0; start <= words.length - len; start++) {
+              result.push(words.slice(start, start + len).join(" "));
+            }
+          }
+          // Also add meaningful single words (skip stop words)
+          for (const w of words) {
+            if (!STOP_WORDS.has(w.toLowerCase()) && w.length > 2) {
+              result.push(w);
+            }
+          }
+        }
+      }
+    }
+    return result;
+  };
+
+  normalizeKeywords(matched || []).forEach(word => {
+    wordTypes.set(word.toLowerCase(), "matched");
+    const startB = /^[a-z0-9]/i.test(word) ? "\\b" : "";
+    const endB = /[a-z0-9]$/i.test(word) ? "\\b" : "";
+    allWords.push(`${startB}${escapeRegex(word)}${endB}`);
+  });
+
+  normalizeKeywords(missing || []).forEach(word => {
+    wordTypes.set(word.toLowerCase(), "missing");
+    const startB = /^[a-z0-9]/i.test(word) ? "\\b" : "";
+    const endB = /[a-z0-9]$/i.test(word) ? "\\b" : "";
+    allWords.push(`${startB}${escapeRegex(word)}${endB}`);
+  });
+
+  if (allWords.length === 0) return <Text style={style}>{text}</Text>;
+
+  allWords.sort((a, b) => b.length - a.length);
+
+  const regex = new RegExp(`(${allWords.join("|")})`, "gi");
+  const parts = text.split(regex);
+
+  return (
+    <Text style={style}>
+      {parts.map((part, i) => {
+        const type = wordTypes.get(part.toLowerCase());
+        if (type) {
+          const bgColor = type === "matched" ? "#fef08a" : "#bbf7d0";
+          const textColor = type === "matched" ? "#854d0e" : "#166534"; // Dark Amber and Dark Green for visibility if bg drops
+          return <Text key={i} style={{ backgroundColor: bgColor, color: textColor }}>{part}</Text>;
+        }
+        return part; // Return raw string to reduce nested <Text> nodes which breaks Yoga wrapping
+      })}
+    </Text>
+  );
+}
+
+export default function ResumePDFTemplateLetter({ resume, showHighlights = false, matchedKeywords = [], missingKeywords = [] }: ResumePDFProps) {
+  return (
+    <Document>
+      <Page size={[612.28, 790.87]} style={styles.page}>
+        {/* HEADING */}
+        <View style={styles.heading}>
+          <Text style={styles.name}>{resume.heading.name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</Text>
+          <Text style={styles.contactInfo}>
+            {resume.heading.phone}
+            {" | "}
+            <Link src={`mailto:${resume.heading.email}`} style={{ ...styles.link, textDecoration: "underline" }}>
+              {resume.heading.email}
+            </Link>
+            {!resume.heading.linkedin_hidden && (
+              <>
+                {" | "}
+                <Link src={resume.heading.linkedin_url_href || getValidUrl(resume.heading.linkedin_url, "linkedin.com/in/username")} style={{ ...styles.link, textDecoration: "underline" }}>
+                  {cleanDisplayUrl(resume.heading.linkedin_url, "linkedin")}
+                </Link>
+              </>
+            )}
+            {!resume.heading.github_hidden && (
+              <>
+                {" | "}
+                <Link src={getValidUrl(resume.heading.github_url, "github.com/username")} style={{ ...styles.link, textDecoration: "underline" }}>
+                  {cleanDisplayUrl(resume.heading.github_url, "github.com/username")}
+                </Link>
+              </>
+            )}
+            {(resume.heading.custom_links || []).map((cl, i) => cl.label && cl.url ? (
+              <>
+                {" | "}
+                <Link key={i} src={cl.url.startsWith("http") ? cl.url : `https://${cl.url}`} style={{ ...styles.link, textDecoration: "underline" }}>
+                  {cl.label}
+                </Link>
+              </>
+            ) : null)}
+          </Text>
+        </View>
+
+        {/* DYNAMIC SECTIONS */}
+        {(resume.section_order || ["summary", "education", "experience", "projects", "skills", "certifications"]).map((sectionId) => {
+          switch (sectionId) {
+            case "summary":
+              if (!resume.summary || resume.summary.trim() === "") return null;
+              return (
+                <View key="summary" wrap={false}>
+                  <Text style={styles.sectionTitle}>Summary</Text>
+                  <View style={styles.sectionDivider} />
+                  <HighlightedText
+                    text={resume.summary}
+                    matched={matchedKeywords}
+                    missing={missingKeywords}
+                    showHighlights={showHighlights}
+                    style={styles.summaryText}
+                  />
+                </View>
+              );
+            case "education":
+              if (!resume.education || resume.education.length === 0) return null;
+              return (
+                <View key="education">
+                  <Text style={styles.sectionTitle}>Education</Text>
+                  <View style={styles.sectionDivider} />
+                  {resume.education.map((edu, idx) => (
+                    <View key={idx} style={styles.itemBlock} wrap={false}>
+                      {/* LaTeX: \textbf{#1} & #2 \\ \textit{\small#3} & \textit{\small #4} */}
+                      <View style={styles.row}>
+                        <Text style={styles.textBold}>{edu.institution}</Text>
+                        <Text>{edu.location}</Text>
+                      </View>
+                      <View style={styles.row}>
+                        <Text style={styles.textSmallItalic}>{edu.degree}{edu.cgpa ? `, CGPA: ${edu.cgpa}` : ""}</Text>
+                        <Text style={styles.textSmallItalic}>{edu.duration}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              );
+            case "experience":
+              if (!resume.experience || resume.experience.length === 0) return null;
+              return (
+                <View key="experience">
+                  <Text style={styles.sectionTitle}>Experience</Text>
+                  <View style={styles.sectionDivider} />
+                  {resume.experience.map((exp, idx) => (
+                    <View key={idx} style={styles.itemBlock} wrap={false}>
+                      {/* LaTeX: \textbf{#1} & #2 \\ \textit{\small#3} & \textit{\small #4} */}
+                      <View style={styles.row}>
+                        <Text style={styles.textBold}>{exp.job_title}</Text>
+                        <Text>{exp.duration}</Text>
+                      </View>
+                      <View style={styles.row}>
+                        <Text style={styles.textSmallItalic}>{exp.company}</Text>
+                        <Text style={styles.textSmallItalic}>{exp.location}</Text>
+                      </View>
+                      <View style={styles.bullets}>
+                        {exp.bullets.map((bullet, bidx) => {
+                          if (!bullet.trim()) return null;
+                          return (
+                            <View key={bidx} style={styles.bullet}>
+                              <Text style={styles.bulletPoint}>•</Text>
+                              <HighlightedText
+                                text={bullet}
+                                matched={matchedKeywords}
+                                missing={missingKeywords}
+                                showHighlights={showHighlights}
+                                style={styles.bulletText}
+                              />
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              );
+            case "projects":
+              if (!resume.projects || resume.projects.length === 0) return null;
+              return (
+                <View key="projects">
+                  <Text style={styles.sectionTitle}>Projects</Text>
+                  <View style={styles.sectionDivider} />
+                  {resume.projects.map((proj, idx) => (
+                    <View key={idx} style={styles.itemBlock} wrap={false}>
+                      {/* LaTeX: \small{\textbf{#1} | \emph{#2}} & #3 */}
+                      <View style={{ ...styles.row, alignItems: "flex-start" }}>
+                        <Text style={{ ...styles.textSmall, flex: 1, paddingRight: 10 }}>
+                          <Text style={styles.textBold}>{proj.title}</Text>
+                          {proj.tech_stack ? (
+                            <Text>
+                              {" | "}
+                              <HighlightedText
+                                text={proj.tech_stack}
+                                matched={matchedKeywords}
+                                missing={missingKeywords}
+                                showHighlights={showHighlights}
+                                style={styles.textItalic}
+                              />
+                            </Text>
+                          ) : null}
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                          {(proj.link || proj.link_href) ? (
+                            <Text style={styles.textSmall}>
+                              <Link src={getValidUrl(proj.link_href || proj.link, "")} style={{ ...styles.link, textDecoration: "underline" }}>
+                                {proj.link || "Link"}
+                              </Link>
+                              {proj.duration ? <Text>  |  </Text> : null}
+                            </Text>
+                          ) : null}
+                          {proj.duration ? <Text>{proj.duration}</Text> : null}
+                        </View>
+                      </View>
+                      <View style={styles.bullets}>
+                        {proj.bullets.map((bullet, bidx) => {
+                          if (!bullet.trim()) return null;
+                          return (
+                            <View key={bidx} style={styles.bullet}>
+                              <Text style={styles.bulletPoint}>•</Text>
+                              <HighlightedText
+                                text={bullet}
+                                matched={matchedKeywords}
+                                missing={missingKeywords}
+                                showHighlights={showHighlights}
+                                style={styles.bulletText}
+                              />
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              );
+            case "skills":
+              return (
+                <View key="skills" wrap={false}>
+                  <Text style={styles.sectionTitle}>Technical Skills</Text>
+                  <View style={styles.sectionDivider} />
+                  <View style={styles.skillsContainer}>
+                    {(resume.technical_skills?.languages?.length ?? 0) > 0 && (
+                      <View style={styles.skillCategoryRow}>
+                        <Text style={styles.skillLabel}>Languages</Text>
+                        <HighlightedText
+                          text={`: ${resume.technical_skills.languages.join(", ")}`}
+                          matched={matchedKeywords}
+                          missing={missingKeywords}
+                          showHighlights={showHighlights}
+                          style={styles.skillList}
+                        />
+                      </View>
+                    )}
+                    {(resume.technical_skills?.frameworks_and_libraries?.length ?? 0) > 0 && (
+                      <View style={styles.skillCategoryRow}>
+                        <Text style={styles.skillLabel}>Frameworks & Libraries</Text>
+                        <HighlightedText
+                          text={`: ${resume.technical_skills.frameworks_and_libraries.join(", ")}`}
+                          matched={matchedKeywords}
+                          missing={missingKeywords}
+                          showHighlights={showHighlights}
+                          style={styles.skillList}
+                        />
+                      </View>
+                    )}
+                    {(resume.technical_skills?.databases?.length ?? 0) > 0 && (
+                      <View style={styles.skillCategoryRow}>
+                        <Text style={styles.skillLabel}>Databases</Text>
+                        <HighlightedText
+                          text={`: ${resume.technical_skills.databases.join(", ")}`}
+                          matched={matchedKeywords}
+                          missing={missingKeywords}
+                          showHighlights={showHighlights}
+                          style={styles.skillList}
+                        />
+                      </View>
+                    )}
+                    {(() => {
+                      const cloudDevSkills =
+                        (resume.technical_skills.cloud_and_dev_tools?.length ?? 0) > 0
+                          ? resume.technical_skills.cloud_and_dev_tools!
+                          : [
+                              ...(resume.technical_skills.cloud_services ?? []),
+                              ...(resume.technical_skills.developer_tools ?? []),
+                            ];
+                      return cloudDevSkills.length > 0 ? (
+                        <View style={styles.skillCategoryRow}>
+                          <Text style={styles.skillLabel}>Cloud &amp; Dev Tools</Text>
+                          <HighlightedText
+                            text={`: ${cloudDevSkills.join(", ")}`}
+                            matched={matchedKeywords}
+                            missing={missingKeywords}
+                            showHighlights={showHighlights}
+                            style={styles.skillList}
+                          />
+                        </View>
+                      ) : null;
+                    })()}
+                    {resume.technical_skills?.miscellaneous && resume.technical_skills.miscellaneous.length > 0 && (
+                      <View style={styles.skillCategoryRow}>
+                        <Text style={styles.skillLabel}>Miscellaneous</Text>
+                        <HighlightedText
+                          text={`: ${resume.technical_skills.miscellaneous.join(", ")}`}
+                          matched={matchedKeywords}
+                          missing={missingKeywords}
+                          showHighlights={showHighlights}
+                          style={styles.skillList}
+                        />
+                      </View>
+                    )}
+                    {(resume.technical_skills?.custom_categories || [])
+                      .filter(cat => cat.label.trim() !== "" || cat.skills.length > 0)
+                      .map((cat, idx) => (
+                      <View key={`custom-${idx}`} style={styles.skillCategoryRow}>
+                        <Text style={styles.skillLabel}>{cat.label || "Custom"}</Text>
+                        <HighlightedText
+                          text={cat.skills.length > 0 ? `: ${cat.skills.join(", ")}` : ""}
+                          matched={matchedKeywords}
+                          missing={missingKeywords}
+                          showHighlights={showHighlights}
+                          style={styles.skillList}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            case "certifications":
+              const items = [
+                ...(resume.certifications_and_achievements ?? []),
+                ...(resume.certifications ?? []),
+                ...(resume.achievements ?? []),
+              ];
+              const unique = [...new Set(items)];
+              if (unique.length === 0) return null;
+              return (
+                <View key="certifications" wrap={false}>
+                  <Text style={styles.sectionTitle}>Certifications & Achievements</Text>
+                  <View style={styles.sectionDivider} />
+                  <View style={styles.skillsContainer}>
+                    {unique.map((item, idx) => (
+                      <View key={idx} style={styles.bullet}>
+                        <Text style={styles.bulletPoint}>•</Text>
+                        <HighlightedText
+                          text={item}
+                          matched={matchedKeywords}
+                          missing={missingKeywords}
+                          showHighlights={showHighlights}
+                          style={styles.bulletText}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            default:
+              if (sectionId.startsWith("custom_")) {
+                const customSection = resume.custom_sections?.find(s => s.id === sectionId);
+                const hasValidBullets = customSection?.bullets?.some(b => {
+                  const text = typeof b === 'string' ? b : b.text;
+                  return !!text?.trim();
+                });
+                if (!customSection || (!customSection.heading?.trim() && !hasValidBullets)) return null;
+                return (
+                  <View key={sectionId} wrap={false}>
+                    <Text style={styles.sectionTitle}>{customSection.heading}</Text>
+                    <View style={styles.sectionDivider} />
+                    <View style={styles.bullets}>
+                      {(customSection.bullets || []).map((bulletObj, bidx) => {
+                        const text = typeof bulletObj === 'string' ? bulletObj : bulletObj.text;
+                        const url = typeof bulletObj === 'string' ? undefined : bulletObj.url;
+                        if (!text?.trim()) return null;
+                        return (
+                          <View key={bidx} style={styles.bullet}>
+                            <Text style={styles.bulletPoint}>•</Text>
+                            {url ? (
+                              <Text style={{ ...styles.bulletText, textDecoration: 'underline', color: '#000' }}>
+                                <Link src={url.startsWith('http') ? url : `https://${url}`} style={styles.link}>
+                                  {text}
+                                </Link>
+                              </Text>
+                            ) : (
+                              <Text style={styles.bulletText}>{text}</Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              }
+              return null;
+          }
+        })}
+      </Page>
+    </Document>
+  );
+}

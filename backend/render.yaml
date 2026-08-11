@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: flashresume-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    rootDir: backend
