@@ -294,15 +294,18 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
         is_explicit_preferred = bool(preferred_model and preferred_model != "auto")
 
         # 1. Explicit Preferred Model Override
+        # Try the selected model first, but ALWAYS keep the normal fallback pools.
         if is_explicit_preferred:
             provider = _get_provider_for_model(preferred_model)
             base_model_id = preferred_model.split("|")[0]
-            is_key3 = "|key3" in preferred_model
-            is_key2 = "|key2" in preferred_model
+            is_key3 = "|key3" in preferred_model.lower()
+            is_key2 = "|key2" in preferred_model.lower()
             key_label = "Key 3" if is_key3 else ("Key 2" if is_key2 else "Key 1")
+
             chain.append((provider, base_model_id, key_label))
+            chain.append(("POOL", 1, None))
+            chain.append(("POOL", 2, None))
         else:
-            # Universal chain: R1, R2, and Self-Edit all start at DeepSeek
             chain.append(("deepseek", "deepseek-v4-flash", "Key 1"))
             chain.append(("POOL", 1, None))
             chain.append(("POOL", 2, None))
@@ -321,10 +324,15 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             for provider, model_id, key_label in models:
                 circuit_key = f"{provider}_{model_id}_{key_label}"
                 
-                if is_explicit_preferred and _is_tripped(circuit_key, db_tripped_keys):
-                    print(f"[{circuit_key}] Circuit tripped but bypassing — explicit user selection")
-                elif not is_explicit_preferred and _is_tripped(circuit_key, db_tripped_keys):
-                    all_attempts.append({"model": f"{model_id} - {key_label}", "status": "circuit_breaker_active"})
+                # Never let a broken/tripped provider block the fallback chain.
+                # If the user selected a provider and it is unhealthy, skip it and
+                # continue with the normal Mistral/Ministral/Cloudflare/NVIDIA pools.
+                if _is_tripped(circuit_key, db_tripped_keys):
+                    all_attempts.append({
+                        "model": f"{model_id} - {key_label}",
+                        "status": "circuit_breaker_active"
+                    })
+                    print(f"[{circuit_key}] Circuit breaker active — skipping")
                     continue
 
                 # ✅ Caller resolved by (provider, key_label) — correct API account always used
