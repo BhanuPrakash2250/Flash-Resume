@@ -73,13 +73,19 @@ async def _trip_circuit(model_id: str, error_type: str):
             pass
 
 def _is_tripped(model_id: str, db_tripped_keys: set = None) -> bool:
-    if db_tripped_keys and model_id in db_tripped_keys:
-        return True
+    """
+    Use only the local in-memory circuit breaker.
+
+    Do NOT let stale Supabase circuit-breaker records block
+    the entire fallback chain.
+    """
     if model_id not in _circuit_tripped:
         return False
+
     if time.time() > _circuit_tripped[model_id]:
         del _circuit_tripped[model_id]
         return False
+
     return True
 
 def _get_rate_limit_type(attempts):
