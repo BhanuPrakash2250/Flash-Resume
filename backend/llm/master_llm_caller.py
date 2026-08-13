@@ -42,50 +42,14 @@ async def _trip_circuit(model_id: str, error_type: str):
     print(f"[{model_id}] Circuit tripped ({error_type}). Cooling down for {cooldown}s.")
     _circuit_tripped[model_id] = time.time() + cooldown
 
-    if sc.supabase:
-        provider = model_id.split("_")[0]
-        try:
-            await asyncio.wait_for(
-                asyncio.to_thread(lambda: sc.supabase.table("llm_usage").insert({
-                    "request_type": "circuit_trip",
-                    "provider": provider,
-                    "model": model_id,
-                    "success": False,
-                    "speed_secs": 0
-                }).execute()),
-                timeout=0.8
-            )
-        except Exception:
-            pass
-    
-    if sc.supabase:
-        try:
-            await asyncio.wait_for(
-                asyncio.to_thread(
-                    lambda: sc.supabase.rpc("trip_circuit_breaker", {
-                        "p_circuit_key": model_id,
-                        "p_cooldown_seconds": cooldown
-                    }).execute()
-                ),
-                timeout=0.8
-            )
-        except Exception:
-            pass
 
 def _is_tripped(model_id: str, db_tripped_keys: set = None) -> bool:
-    """
-    Use only the local in-memory circuit breaker.
-
-    Do NOT let stale Supabase circuit-breaker records block
-    the entire fallback chain.
-    """
+    # Local-only circuit breaker. Stale Supabase records never block fallback.
     if model_id not in _circuit_tripped:
         return False
-
     if time.time() > _circuit_tripped[model_id]:
         del _circuit_tripped[model_id]
         return False
-
     return True
 
 def _get_rate_limit_type(attempts):
@@ -282,30 +246,20 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
         max_tokens = _R1_MAX_TOKENS if is_r1 else _R2_MAX_TOKENS
         all_attempts = []
         
-        # 1. Fetch DB tripped keys
+        # Circuit state is local-only. Do not load stale DB breakers.
         db_tripped_keys = set()
-        if sc.supabase:
-            try:
-                res = await asyncio.wait_for(
-                    asyncio.to_thread(lambda: sc.supabase.rpc("get_tripped_circuits").execute()),
-                    timeout=0.8
-                )
-                if res.data:
-                    db_tripped_keys = {row["circuit_key"] for row in res.data}
-            except Exception:
-                pass
 
         # Build Chain
         chain = []
         is_explicit_preferred = bool(preferred_model and preferred_model != "auto")
 
-        # 1. Explicit Preferred Model Override
-        # Try the selected model first, but ALWAYS keep the normal fallback pools.
+        # Try a selected model first, then ALWAYS use the fallback pools.
         if is_explicit_preferred:
             provider = _get_provider_for_model(preferred_model)
             base_model_id = preferred_model.split("|")[0]
-            is_key3 = "|key3" in preferred_model.lower()
-            is_key2 = "|key2" in preferred_model.lower()
+            preferred_lower = preferred_model.lower()
+            is_key3 = "|key3" in preferred_lower
+            is_key2 = "|key2" in preferred_lower
             key_label = "Key 3" if is_key3 else ("Key 2" if is_key2 else "Key 1")
 
             chain.append((provider, base_model_id, key_label))
@@ -330,10 +284,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             for provider, model_id, key_label in models:
                 circuit_key = f"{provider}_{model_id}_{key_label}"
                 
-                # Never let a broken/tripped provider block the fallback chain.
-                # If the user selected a provider and it is unhealthy, skip it and
-                # continue with the normal Mistral/Ministral/Cloudflare/NVIDIA pools.
-                if _is_tripped(circuit_key, db_tripped_keys):
+                if _is_tripped(circuit_key):
                     all_attempts.append({
                         "model": f"{model_id} - {key_label}",
                         "status": "circuit_breaker_active"
