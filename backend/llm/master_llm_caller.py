@@ -270,7 +270,26 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             chain.append(("POOL", 1, None))
             chain.append(("POOL", 2, None))
 
-        # Execute Chain
+        # Execute Chain.
+        # If every candidate is locally blocked, perform one recovery pass.
+        # This prevents a permanent "all circuit breakers active" dead-end.
+        candidate_keys = []
+        for item in chain:
+            candidate_models = (
+                await _get_pool_models(item[1])
+                if item[0] == "POOL"
+                else [item]
+            )
+            for p, m, k in candidate_models:
+                candidate_keys.append(f"{p}_{m}_{k}")
+
+        all_tripped = bool(candidate_keys) and all(
+            _is_tripped(key) for key in candidate_keys
+        )
+
+        if all_tripped:
+            print("[LLM] All candidates are circuit-tripped — starting recovery pass.")
+
         for item in chain:
             original_pool = None
             pool_type = None
@@ -284,7 +303,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
             for provider, model_id, key_label in models:
                 circuit_key = f"{provider}_{model_id}_{key_label}"
                 
-                if _is_tripped(circuit_key):
+                if _is_tripped(circuit_key) and not all_tripped:
                     all_attempts.append({
                         "model": f"{model_id} - {key_label}",
                         "status": "circuit_breaker_active"
@@ -292,11 +311,46 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
                     print(f"[{circuit_key}] Circuit breaker active — skipping")
                     continue
 
-                # ✅ Caller resolved by (provider, key_label) — correct API account always used
-                caller = _CALLERS.get((provider, key_label), call_single_mistral_r1)
-                result = await caller(model_id, prompt, max_tokens)
+                # Resolve the exact provider + API account.
+                caller = _CALLERS.get((provider, key_label))
+                if caller is None:
+                    all_attempts.append({
+                        "model": f"{model_id} - {key_label}",
+                        "status": "caller_not_configured"
+                    })
+                    continue
 
-                if result["success"]:
+                # One provider failure must NEVER abort the fallback chain.
+                try:
+                    result = await asyncio.wait_for(
+                        caller(model_id, prompt, max_tokens),
+                        timeout=30
+                    )
+                except asyncio.TimeoutError:
+                    status = "provider_timeout_30s"
+                    print(f"[{circuit_key}] {status} — trying next provider")
+                    all_attempts.append({
+                        "model": f"{model_id} - {key_label}",
+                        "status": status
+                    })
+                    continue
+                except Exception as exc:
+                    status = f"provider_exception: {type(exc).__name__}: {exc}"
+                    print(f"[{circuit_key}] {status} — trying next provider")
+                    all_attempts.append({
+                        "model": f"{model_id} - {key_label}",
+                        "status": status
+                    })
+                    continue
+
+                if not isinstance(result, dict):
+                    all_attempts.append({
+                        "model": f"{model_id} - {key_label}",
+                        "status": "invalid_provider_response"
+                    })
+                    continue
+
+                if result.get("success"):
                     print(f"[LLM Fallback] Attempted {len(all_attempts)+1} model(s) -> Winner: {model_id} - {key_label} ({result.get('speed', 'N/A')}s)")
                     if original_pool:
                         try:
@@ -304,6 +358,7 @@ async def call_llm_balanced(prompt: str, is_r1: bool, preferred_model: str = "",
                             await _advance_rr_index(pool_type, len(original_pool), winner_idx)
                         except ValueError:
                             pass
+                    _circuit_tripped.pop(circuit_key, None)
                     return _finalize(result, provider, f"{model_id} - {key_label}", "r1" if is_r1 else "r2")
 
                 err_type = _get_rate_limit_type(result.get("attempts", []))
