@@ -44,25 +44,6 @@ async def generate_resume_endpoint(request: Request, payload: GenerateRequest, a
         except Exception:
             pass  # Never block generation for auth decode failures
 
-    # Step 0: Enforcement check — Reject blocked users (5+ consecutive generations without download & 0 credits)
-    if user_id and sc.supabase:
-        try:
-            u_res = await asyncio.to_thread(
-                lambda: sc.supabase.table("users").select("fraud_tracker_counter, credits_balance").eq("id", user_id).single().execute()
-            )
-            if u_res and u_res.data:
-                fraud_cnt = u_res.data.get("fraud_tracker_counter", 0) or 0
-                credits_bal = u_res.data.get("credits_balance", 0) or 0
-                if fraud_cnt >= 5 and credits_bal <= 0:
-                    raise HTTPException(
-                        status_code=403,
-                        detail="LIMIT_REACHED: You have reached the free resume generation limit of 5 without downloading. Please upgrade to continue."
-                    )
-        except HTTPException:
-            raise
-        except Exception as e:
-            print(f"[Generate] Pre-check error (non-fatal): {e}")
-
     # Step 1: Generate the rewritten resume with Template v1 validation
     try:
         generated, model_used = await generate_resume(
@@ -125,18 +106,6 @@ async def generate_resume_endpoint(request: Request, payload: GenerateRequest, a
                 print(f"[Generate] Background session skeleton save failed (non-critical): {e}")
 
         asyncio.create_task(_save_session_skeleton())
-
-    # Step 5: Increment fraud tracker counter — fire-and-forget, never blocks the response.
-    # Counts consecutive generations without a download. Reset happens in deduct_credits_v2 on download.
-    if sc.supabase and user_id:
-        async def safe_increment():
-            try:
-                await sc.sb(lambda: sc.supabase.rpc("increment_fraud_counter", {"p_user_id": user_id}).execute())
-            except Exception as e:
-                print(f"[Generate] Background fraud counter failed: {e}")
-                pass
-        
-        asyncio.create_task(safe_increment())
 
     # Return Template v1 JSON directly to client — client stores in localStorage
     return JSONResponse(content=generated)
