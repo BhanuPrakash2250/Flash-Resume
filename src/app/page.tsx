@@ -212,26 +212,16 @@ export default function App() {
   const [activeTooltip, setActiveTooltip] = useState<"nav" | "dropdown" | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Resume tools are public. Account-specific features remain disabled without authentication.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const user = session?.user ?? null;
-      setCurrentUser(user);
-
-      // Track visit AFTER auth resolves so user_id is known for dev filtering.
-      // Auth reads from localStorage — instant. Tracking is fire-and-forget, never blocks the user.
-      if (process.env.NODE_ENV === "production") {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
-        fetch(`${apiUrl}/api/analytics/track-visit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ page_type: "landing", user_id: user?.id ?? null }),
-        }).catch(() => { }); // silent fail — never block the user
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setCurrentUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
+    if (process.env.NODE_ENV === "production") {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
+      fetch(`${apiUrl}/api/analytics/track-visit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page_type: "landing", user_id: null }),
+      }).catch(() => { });
+    }
   }, []);
 
   // Show mobile hint popup after a short delay, only on mobile
