@@ -126,23 +126,7 @@ export default function ResultPage() {
   const [buckets, setBuckets] = useState<any[]>([]);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
-  const [showTeaserAuthGate, setShowTeaserAuthGate] = useState(false);
-
-  // 5-Second Teaser Auth Wall: Allow unauthenticated users to see the result for 5s, then lock it down.
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user) {
-        timer = setTimeout(() => {
-          setShowTeaserAuthGate(true);
-        }, 5000);
-      }
-    });
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
+  // Authentication gate removed: generated resumes are available without Google sign-in.
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent | TouchEvent) {
@@ -3005,18 +2989,7 @@ const testResponse = await fetch(`${apiUrl}/health`, {
           onClose={() => setShowReferral(false)}
         />
       )}
-      {/* The 5-Second Teaser Auth Wall */}
-      <PricingPopup
-        isOpen={showTeaserAuthGate}
-        onClose={() => { }} // Un-closable: force login to continue
-        onSuccess={() => setShowTeaserAuthGate(false)}
-        directPay={false}
-        forcePlanSelect={false}
-        prefetchedUser={null}
-        prefetchedCredits={0}
-        disableClose={true}
-        loginOnly={true}
-      />
+
     </div>
   );
 }
