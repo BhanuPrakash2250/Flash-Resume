@@ -181,7 +181,6 @@ export default function App() {
   const [showBuyMoreCredits, setShowBuyMoreCredits] = useState(false);
   const [selectedPricingPlan, setSelectedPricingPlan] = useState<"pay_per_use" | "bulk_offer" | "student" | null>(null);
   const [hoveredPlan, setHoveredPlan] = useState<string>("bulk_offer");
-  const [showLoginOnly, setShowLoginOnly] = useState(false);
   const [totalSignups, setTotalSignups] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
@@ -885,12 +884,6 @@ export default function App() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowLoginOnly(true)}
-                  className="text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-full border border-on-surface-variant/20 hover:bg-surface-container-low transition-colors text-on-surface-variant whitespace-nowrap"
-                >
-                  Log In
-                </button>
                 <button
                   onClick={() => document.getElementById('upload-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                   className="flash-gradient text-white font-bold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-full hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20 whitespace-nowrap"
@@ -1850,17 +1843,6 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
         forcePlanSelect={true}
         prefetchedUser={currentUser}
         prefetchedCredits={credits}
-      />
-      {/* Login-only popup — no pricing, no redirect */}
-      <PricingPopup
-        isOpen={showLoginOnly}
-        onClose={() => setShowLoginOnly(false)}
-        onSuccess={() => setShowLoginOnly(false)}
-        directPay={false}
-        forcePlanSelect={false}
-        prefetchedUser={currentUser}
-        prefetchedCredits={credits}
-        loginOnly={true}
       />
     </div>
   );
