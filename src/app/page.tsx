@@ -176,29 +176,10 @@ export default function App() {
   const [hoveredPlan, setHoveredPlan] = useState<string>("bulk_offer");
   const [totalSignups, setTotalSignups] = useState<number | null>(null);
   const currentUser: any = null;
-  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-  const accountDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent | TouchEvent) {
-      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target as Node)) {
-        setShowAccountDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside, { passive: true });
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, []);
   const [analysisCountdown, setAnalysisCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [optimizeMode, setOptimizeMode] = useState<"jd" | "manual" | "first_resume" | null>("jd");
-  const [copied, setCopied] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
-  const [activeTooltip, setActiveTooltip] = useState<"nav" | "dropdown" | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Resume tools are public. Account-specific features remain disabled without authentication.
   useEffect(() => {
@@ -233,7 +214,6 @@ export default function App() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowModeDropdown(false);
       }
-      setActiveTooltip(null);
     };
     document.addEventListener("mousedown", handler);
     document.addEventListener("touchstart", handler);
@@ -445,84 +425,12 @@ export default function App() {
     }
   };
 
-  const handleShare = async () => {
-    if (!referralCode) return;
-    const url = `${window.location.origin}/?ref=${referralCode}`;
-
-    // 1. Copy to clipboard synchronously first. 
-    // iOS Safari blocks clipboard access if it happens after an 'await'.
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(url).catch(() => { });
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = url;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-      }
-    } catch (e) {
-      // Ignore copy errors
-    }
-
-    // 2. Attempt native share sheet
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "Flashresume",
-          text: "I used Flashresume to rebuild my resume in 60 seconds! Must try.",
-          url: url,
-        });
-        return;
-      } catch (err: any) {
-        if (err.name === "AbortError") return;
-      }
-    }
-
-    // 3. If native share fails or isn't supported, show "Copied" UI
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <div className="min-h-screen font-sans overflow-x-hidden" suppressHydrationWarning>
       {/* Onboarding tour — shown once to first-time visitors (any auth state) */}
       <OnboardingTour />
       {/* TopNavBar */}
       <nav className="fixed top-0 w-full z-50 glass-header border-b border-surface-container-low">
-        {/* Mobile-only referral announcement bar — logged-in users only */}
-        {currentUser && (
-          <>
-            <style>{`
-              @keyframes referral-shine {
-                0%   { transform: translateX(-100%) skewX(-20deg); }
-                100% { transform: translateX(300%) skewX(-20deg); }
-              }
-              .referral-shine-sweep {
-                animation: referral-shine 2.2s ease-in-out infinite;
-                animation-delay: 1s;
-              }
-            `}</style>
-            <button
-              onClick={handleShare}
-              className="md:hidden w-full relative overflow-hidden flex items-center justify-center gap-2.5 text-white text-sm font-bold py-3.5 px-4 tracking-wide active:opacity-80 transition-opacity"
-              style={{ background: "linear-gradient(90deg, #006859 0%, #008570 50%, #006859 100%)" }}
-            >
-              {/* Shimmer sweep */}
-              <span
-                className="referral-shine-sweep pointer-events-none absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                aria-hidden="true"
-              />
-              {/* Pulsing dot */}
-              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
-              </span>
-              🎁 Refer &amp; get 20 credits —&nbsp;<span className="underline underline-offset-2">tap here</span>
-            </button>
-          </>
-        )}
         <div className="flex justify-between items-center max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 w-full">
 
           <div className="flex items-center gap-2 shrink-0">
@@ -556,191 +464,16 @@ export default function App() {
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a href="#process" className="text-on-surface-variant hover:text-primary transition-colors font-medium">Process</a>
-            {currentUser && (
-              <a href="#pricing" className="text-on-surface-variant hover:text-primary transition-colors font-medium">Pricing</a>
-            )}
             <a href="#reviews" className="text-on-surface-variant hover:text-primary transition-colors font-medium">Reviews</a>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {currentUser ? (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="hidden sm:flex items-center mr-1">
-                  <button
-                    onClick={handleShare}
-                    className="relative overflow-hidden flex items-center gap-1 bg-[#006859] text-white pl-3 pr-2 py-1.5 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95"
-                  >
-                    {/* Shimmer sweep */}
-                    <span className="referral-shine-sweep pointer-events-none absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden="true" />
-                    🎁 <span className="hidden md:inline">{copied ? "Copied!" : "Invite & Earn"}</span>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      aria-label="View tooltip"
-                      className="relative group/tooltip inline-flex items-center cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTooltip(activeTooltip === "nav" ? null : "nav");
-                      }}
-                      onMouseEnter={() => setActiveTooltip("nav")}
-                      onMouseLeave={() => setActiveTooltip(null)}
-                    >
-                      <Info className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity ml-1 cursor-help" />
-                      <span className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 ${activeTooltip === "nav" ? "block" : "hidden group-hover/tooltip:block"} bg-[#1a1a1f] text-white text-[10px] font-semibold leading-normal rounded-lg px-2.5 py-1.5 w-48 shadow-xl text-center pointer-events-none z-50`}>
-                        You will be credited +20 credits after your friend downloads his/her first resume. Hurry up!
-                        <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-[4px] border-transparent border-b-[#1a1a1f]"></span>
-                      </span>
-                    </div>
-                  </button>
-                </div>
+            <button
+              onClick={() => document.getElementById('upload-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              className="flash-gradient text-white font-bold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-full hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20 whitespace-nowrap"
+            >
+              Get Started
+            </button>
 
-                {/* Account Dropdown */}
-                <div className="relative" ref={accountDropdownRef}>
-                  <button
-                    onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition-colors flex items-center justify-center relative shadow-sm"
-                  >
-                    <UserIcon className="w-4 h-4 sm:w-5 sm:h-5 text-on-surface-variant" />
-                    {credits < 10 && <span className="absolute top-0 right-0 w-3 h-3 bg-error rounded-full border-2 border-surface"></span>}
-                  </button>
-
-                  <AnimatePresence>
-                    {showAccountDropdown && (
-                      <>
-                        <motion.div
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute right-0 mt-3 w-72 bg-surface-container-lowest border border-surface-container-high rounded-2xl shadow-2xl overflow-hidden z-50"
-                        >
-                          <div className="p-4 border-b border-surface-container-low bg-surface-container-lowest">
-                            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Account</p>
-                            <p className="text-sm text-on-background truncate font-medium">{currentUser.email}</p>
-                          </div>
-
-                          <div className="p-4 space-y-4">
-
-
-                            {buckets.length > 0 && (
-                              <div className="space-y-4 mt-5">
-                                {buckets.map(b => {
-                                  const activeBucket = buckets.find(b => b.status === 'active');
-                                  const activePlanName = activeBucket ? (activeBucket.plan_type === 'student' ? 'student plan' : activeBucket.plan_type === 'bulk_offer' ? 'bulk plan' : activeBucket.plan_type === 'regular' ? 'pro plan' : 'previous plan') : 'previous plan';
-                                  const name = b.plan_type === 'student' ? '🎓 Student Plan' : b.plan_type === 'bulk_offer' ? '📦 Bulk Offer' : b.plan_type === 'regular' ? '👑 Pro Monthly' : b.plan_type === 'pay_per_use' ? '💳 Pay Per Use' : '🎁 Referral Credits';
-                                  let validText = "";
-                                  if (b.status === 'active' && b.expires_at) {
-                                    validText = `Valid till ${new Date(b.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-                                  } else if (b.status === 'queued') {
-                                    validText = `Starts after ${activePlanName}`;
-                                  } else if (b.status === 'fallback' || !b.validity_duration_days) {
-                                    validText = `Lifetime (No Expiration)`;
-                                  }
-
-                                  const isQueued = b.status === 'queued';
-
-                                  return (
-                                    <div key={b.id} className="flex flex-col gap-0.5">
-                                      <div className="flex justify-between items-center w-full gap-4">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <p className="font-bold text-sm text-on-background truncate">{name}</p>
-                                        </div>
-                                        <span className="font-black text-sm text-on-background whitespace-nowrap">{b.remaining_credits} Credits</span>
-                                      </div>
-                                      <p className="text-[11px] font-medium text-on-surface-variant/80">
-                                        {validText}
-                                      </p>
-                                    </div>
-                                  );
-                                })}
-
-                                {buckets.length > 1 && (
-                                  <div className="pt-3 border-t border-surface-container-high/60 flex justify-between items-center">
-                                    <span className="text-sm font-semibold text-on-background">⚡ Total</span>
-                                    <span className="text-sm font-black text-on-background">{credits} Credits</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            <div className="pt-2 space-y-2 border-t border-surface-container-low mt-2">
-                              <button
-                                onClick={handleShare}
-                                className="relative overflow-hidden w-full py-2.5 bg-[#006859] text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
-                              >
-                                {/* Shimmer sweep */}
-                                <span className="referral-shine-sweep pointer-events-none absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden="true" />
-                                🎁 {copied ? "Link Copied!" : "Invite Friends (+20 Credits)"}
-                                <div
-                                  className="relative group/tooltip inline-flex items-center"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveTooltip(activeTooltip === "dropdown" ? null : "dropdown");
-                                  }}
-                                  onMouseEnter={() => setActiveTooltip("dropdown")}
-                                  onMouseLeave={() => setActiveTooltip(null)}
-                                >
-                                  <Info className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity ml-1 cursor-help" />
-                                  <span className={`absolute right-full mr-2 top-1/2 -translate-y-1/2 ${activeTooltip === "dropdown" ? "block" : "hidden group-hover/tooltip:block"} bg-[#1a1a1f] text-white text-[10px] font-semibold leading-normal rounded-lg px-2.5 py-1.5 w-48 shadow-xl text-center pointer-events-none z-50`}>
-                                    You will be credited +20 credits after your friend downloads his/her first resume. Hurry up!
-                                    <span className="absolute left-full top-1/2 -translate-y-1/2 border-[4px] border-transparent border-l-[#1a1a1f]"></span>
-                                  </span>
-                                </div>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setShowAccountDropdown(false);
-                                  window.open("/profile", "_blank");
-                                }}
-                                className="w-full py-2.5 bg-gradient-to-r from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 text-primary border border-primary/20 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2"
-                              >
-                                👤 View Full Profile →
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setShowAccountDropdown(false);
-                                  setShowBuyMoreCredits(true);
-                                }}
-                                className="w-full py-2.5 bg-surface-container-low hover:bg-surface-container-high text-on-background text-sm font-bold rounded-xl transition-colors"
-                              >
-                                Buy More Credits
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setShowAccountDropdown(false);
-                                  router.push('/contact');
-                                }}
-                                className="w-full py-2.5 bg-surface-container-low hover:bg-surface-container-high text-on-background text-sm font-bold rounded-xl transition-colors"
-                              >
-                                Help / Contact
-                              </button>
-
-                              <button
-                                onClick={async () => {
-                                  // Account sign-out is unavailable because account sign-in is disabled.
-                                  setShowAccountDropdown(false);
-                                }}
-                                className="w-full py-2.5 text-error text-sm font-bold rounded-xl hover:bg-error/10 transition-colors border border-error/20"
-                              >
-                                Sign Out
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => document.getElementById('upload-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                  className="flash-gradient text-white font-bold text-xs sm:text-sm px-4 sm:px-6 py-2 sm:py-2.5 rounded-full hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/20 whitespace-nowrap"
-                >
-                  Get Started
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </nav>
