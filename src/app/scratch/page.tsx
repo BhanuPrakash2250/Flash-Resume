@@ -365,71 +365,28 @@ export default function ScratchPage() {
 
   const checkAccess = async () => {
     setCheckingAccess(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      setUserEmail(session.user.email || "");
-      setCurrentUserId(session.user.id);
-
-      const { data: uData } = await supabase.from("users").select("referral_code").eq("id", session.user.id).single();
-      if (uData?.referral_code) setReferralCode(uData.referral_code);
-
-      const { data: creditData } = await supabase.rpc("get_total_active_credits", { p_user_id: session.user.id });
-      const currentCredits = creditData ?? 0;
-      setCredits(currentCredits);
-
-      const { data: bucketData } = await supabase
-        .from("credit_buckets")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .in("status", ["active", "queued", "fallback"])
-        .gt("remaining_credits", 0)
-        .order("created_at", { ascending: true });
-      if (bucketData) setBuckets(bucketData);
-    }
-
-    // REMOVED: All payment restrictions - unlimited free downloads for everyone
+    setUserEmail("");
+    setCurrentUserId("");
+    setCredits(0);
+    setBuckets([]);
+    setReferralCode(null);
+    // Resume downloads are free and do not require an account.
     setHasPaidAccess(true);
-
     setCheckingAccess(false);
   };
 
-  // Check if user has already paid and listen for auth state changes
+  // Public scratch editor: no Supabase session or account lookup.
   useEffect(() => {
     checkAccess();
 
-    // Track /scratch page visit under page_type='result' for funnel analytics.
-    // Both /result and /scratch represent the same funnel step: "reached the resume editor".
-    // Fire-and-forget — never blocks the user, production only.
     if (process.env.NODE_ENV === "production") {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        fetch(`${apiUrl}/api/analytics/track-visit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            page_type: "result",
-            session_id: null,
-            user_id: session?.user?.id ?? null,
-          }),
-        }).catch(() => {}); // silent fail — never block the user
-      });
+      fetch(`${apiUrl}/api/analytics/track-visit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page_type: "result", session_id: null, user_id: null }),
+      }).catch(() => { });
     }
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        checkAccess();
-      } else if (event === "SIGNED_OUT") {
-        setUserEmail("");
-        setCurrentUserId("");
-        setCredits(0);
-        setBuckets([]);
-        setHasPaidAccess(false);
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
   }, []);
 
   // Seed undo history exactly once when the blank template first loads
@@ -570,8 +527,7 @@ export default function ScratchPage() {
       // 2. Determine if we should show feedback (pre-compute BEFORE iOS tab suspension)
       let shouldShowFeedback = false;
       let shouldShowReferral = false;
-      const { data: { session } } = await supabase.auth.getSession();
-      const activeUserId = session?.user?.id || currentUserId;
+      const activeUserId = currentUserId;
       if (activeUserId) {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
         const isMobile = window.matchMedia?.("(pointer: coarse)")?.matches ?? /Mobi|Android|iPhone/i.test(navigator.userAgent);
