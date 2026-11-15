@@ -15,7 +15,6 @@ import {
   Wand2,
   FileText,
   X,
-  User as UserIcon,
   Loader2,
   Crosshair,
   Sparkles,
@@ -23,12 +22,10 @@ import {
   SlidersHorizontal,
   GraduationCap,
   Briefcase,
-  Info,
   Laptop,
   Package,
-  AlertCircle
 } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { parseResume, analyzeResume } from "@/lib/api";
 
@@ -173,9 +170,7 @@ export default function App() {
   const [parsedText, setParsedText] = useState("");
   const [showParsedText, setShowParsedText] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const [hoveredPlan, setHoveredPlan] = useState<string>("bulk_offer");
   const [totalSignups, setTotalSignups] = useState<number | null>(null);
-  const currentUser: any = null;
   const [analysisCountdown, setAnalysisCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [optimizeMode, setOptimizeMode] = useState<"jd" | "manual" | "first_resume" | null>("jd");
@@ -197,17 +192,6 @@ export default function App() {
 
 
   // Visit tracking moved inside getSession() above — fires once after auth resolves with correct user_id
-
-  // ── Referral Capture: Step 1 ─────────────────────────────────────────────
-  // On page load, read ?ref=CODE from the URL and store it in localStorage.
-  // This persists across OAuth redirects so the code survives Google sign-in.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const refCode = params.get("ref");
-    if (refCode && refCode.trim().length > 0) {
-      localStorage.setItem("flashresume_ref", refCode.trim().toUpperCase());
-    }
-  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent | TouchEvent) => {
@@ -741,24 +725,16 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
                   </button>
                 )}
 
-                {/* Main CTA */}
-                {(() => {
-                  const isDevMode = currentUser?.email === "flashresume.in@gmail.com";
-                  if (!isDevMode) return null;
-                  return (
-                    <>
-                      {optimizeMode === "jd" && (
-                        <ModelSelector storageKey="r1_preferred_model" label="R1 Model (Analysis)" />
-                      )}
-                      {optimizeMode === "first_resume" && (
-                        <ModelSelector storageKey="preferred_model" label="R2 Model (Generation)" />
-                      )}
-                      {optimizeMode === "manual" && (
-                        <ModelSelector storageKey="preferred_model" label="R2 Model (Generation)" />
-                      )}
-                    </>
-                  );
-                })()}
+                {/* AI model selection is available to every visitor. */}
+                {optimizeMode === "jd" && (
+                  <ModelSelector storageKey="r1_preferred_model" label="R1 Model (Analysis)" />
+                )}
+                {optimizeMode === "first_resume" && (
+                  <ModelSelector storageKey="preferred_model" label="R2 Model (Generation)" />
+                )}
+                {optimizeMode === "manual" && (
+                  <ModelSelector storageKey="preferred_model" label="R2 Model (Generation)" />
+                )}
                 <button
                   id="tour-step-cta"
                   onClick={handleGenerate}
