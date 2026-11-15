@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import type { CombinedAnalysisResponse } from "@/lib/api";
 import ModelSelector from "@/components/ModelSelector";
-import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 import EditableSkillTags from "@/components/EditableSkillTags";
 
@@ -28,19 +27,11 @@ export default function AnalyzePage() {
   const [analysis, setAnalysis] = useState<CombinedAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [projectApproved, setProjectApproved] = useState(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser] = useState<User | null>(null);
   const [extractedLinks, setExtractedLinks] = useState<any>(null);
   const [showDebug, setShowDebug] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user ?? null);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+
 
   useEffect(() => {
     const analysisData = localStorage.getItem("analysis");
