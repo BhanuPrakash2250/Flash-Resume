@@ -377,32 +377,6 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError(null);
-    if (!loginOnly) {
-      localStorage.setItem("auth_redirect_pricing", "true");
-    }
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}${window.location.pathname}${window.location.search}`
-        }
-      });
-      if (error) throw error;
-      // Note: This will redirect to Google
-    } catch (err: any) {
-      setError(err.message || "Google login failed");
-      setLoading(false);
-      if (!loginOnly) {
-        localStorage.removeItem("auth_redirect_pricing");
-      }
-    }
-  };
-
-
-
   const sendOtp = async () => {
     if (!studentEmail.trim()) { setError("Please enter your email."); return; }
     setLoading(true);
@@ -688,39 +662,25 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
                     id="pricing-google-signin-btn"
                     onClick={handleGoogleLogin}
                     disabled={loading}
-                    className="w-full bg-surface-container-lowest border-2 border-primary/40 hover:border-primary text-on-background font-bold py-4 rounded-xl hover:bg-surface-container-low transition-all flex justify-center items-center gap-3 shadow-sm"
+                    className="w-full bg-surface-container-lowest border-2 border-primary/40 hover:border-primary text-on-background font-bold py-4 rounded-xl hover:bg-surfac              {/* AUTH STEP — account sign-in removed; free resume tools remain available */}
+              {step === "auth" && (
+                <motion.div key="auth" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
+                    <p className="text-sm font-semibold text-on-background mb-2">Sign-in is unavailable</p>
+                    <p className="text-xs leading-relaxed text-on-surface-variant">
+                      You can use resume creation and AI optimization without signing in. Paid plans, credits, and account features require an active account service.
+                    </p>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="w-full bg-surface-container-low border border-surface-container-high text-on-background font-bold py-3 rounded-xl hover:bg-surface-container-high transition-colors"
                   >
-                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                      <>
-                        <GoogleIcon />
-                        Continue with Google
-                      </>
-                    )}
+                    Close
                   </button>
-
-                  <p className="text-center text-xs text-on-surface-variant">
-                    By continuing, you agree to our{" "}
-                    <a href="/terms" className="text-primary hover:underline font-medium">Terms</a>{" "}and{" "}
-                    <a href="/privacy" className="text-primary hover:underline font-medium">Privacy Policy</a>.
-                  </p>
-
-                  {/* Review for auth step — always show student review on signup */}
-                  <ReviewBanner review={SCRATCH_REVIEW} />
-                  <MiniReviewsMarquee />
                 </motion.div>
               )}
 
-              {/* PLAN STEP */}
-              {step === "plan" && (
-                <motion.div key="plan" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                  <MiniReviewsMarquee />
-                  <div className="flex flex-col md:grid md:grid-cols-2 lg:grid-cols-[repeat(3,240px)] lg:justify-center gap-3 md:gap-4 pt-2 pb-3 px-1">
-                    {/* pay_per_use card */}
-                    {PLANS.slice(0, 1).map((plan) => {
-                      const isSelected = selectedPlan === plan.id;
-                      return (
-                        <React.Fragment key={plan.id}>
-                          {/* Card */}
+/* Card */}
                           <div onClick={() => setSelectedPlan(plan.id)}
                             className={`relative w-full md:w-auto flex flex-col p-4 md:p-5 rounded-2xl md:rounded-3xl border-2 cursor-pointer transition-all duration-300 ${isSelected ? "border-transparent bg-gradient-to-b from-[#006859] to-[#12f8d7] shadow-xl md:scale-105 text-white" : plan.borderClass + " bg-surface-container-lowest text-on-background hover:border-primary/40 hover:shadow-md"}`}>
 
