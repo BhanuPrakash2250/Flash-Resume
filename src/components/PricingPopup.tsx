@@ -314,67 +314,9 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
 
 
   const checkUserSession = async () => {
-    // Fast path: use pre-loaded user data if provided (avoids 2 extra network calls)
-    if (prefetchedUser) {
-      setUser(prefetchedUser);
-      const { data: userData } = await supabase.from("users").select("is_student, student_verified_at").eq("id", prefetchedUser.id).single();
-      if (userData?.is_student && userData?.student_verified_at) {
-        setIsAlreadyVerified(true);
-      }
-      // Check if user has ever successfully purchased any plan
-      const { data: paymentCheck } = await supabase
-        .from("payments").select("id").eq("user_id", prefetchedUser.id).eq("status", "success").limit(1);
-      setHasEverPurchased(!!(paymentCheck && paymentCheck.length > 0));
-
-      const credits = prefetchedCredits ?? 0;
-      if (loginOnly) {
-        onSuccess();
-      } else if (directPay && initialPlan) {
-        setStep("processing");
-        setTimeout(() => handleProceedToPayment(initialPlan, false, prefetchedUser), 100);
-      } else if (!forcePlanSelect && credits >= 10) {
-        onSuccess();
-      } else {
-        setStep("plan");
-      }
-      return;
-    }
-    try {
-      // Standard path: fetch session from Supabase
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const sessionUser = session.user;
-        setUser(sessionUser);
-
-        const { data: userData } = await supabase.from("users").select("is_student, student_verified_at").eq("id", sessionUser.id).single();
-        if (userData?.is_student && userData?.student_verified_at) {
-          setIsAlreadyVerified(true);
-        }
-
-        // Check if user has ever successfully purchased any plan
-        const { data: paymentCheck } = await supabase
-          .from("payments").select("id").eq("user_id", sessionUser.id).eq("status", "success").limit(1);
-        setHasEverPurchased(!!(paymentCheck && paymentCheck.length > 0));
-
-        const { data: creditData } = await supabase.rpc("get_total_active_credits", { p_user_id: sessionUser.id });
-        const currentCredits = creditData ?? 0;
-        if (loginOnly) {
-          onSuccess();
-        } else if (directPay && initialPlan) {
-          setStep("processing");
-          setTimeout(() => handleProceedToPayment(initialPlan, false, sessionUser), 100);
-        } else if (!forcePlanSelect && currentCredits >= 10) {
-          onSuccess();
-        } else {
-          setStep("plan");
-        }
-      } else {
-        setStep("auth");
-      }
-    } catch (error) {
-      console.error("Session check failed:", error);
-      setStep("auth"); // fallback to auth on error
-    }
+    // Account-based purchases are disabled; the free resume workflow needs no sign-in.
+    setUser(null);
+    setStep("auth");
   };
 
   const sendOtp = async () => {
