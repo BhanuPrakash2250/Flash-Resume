@@ -416,9 +416,6 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
             { amount: 29, plan_type: "pay_per_use" };
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
       const getCookie = (name: string) => {
         if (typeof document === "undefined") return null;
         const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
@@ -431,7 +428,6 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ 
           plan_type: planDetails.plan_type, 
@@ -454,15 +450,11 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
         theme: { color: "#6750A4" },
         handler: async (response: any) => {
           try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-
             const verifyRes = await fetch(`${apiUrl}/api/payments/verify`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
+                    },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -476,8 +468,7 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
               method: "PATCH",
               headers: {
                 "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
+                    },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 status: "failed",
@@ -495,21 +486,15 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
           ondismiss: () => {
             // Try to notify the backend that the user abandoned the modal
             if (orderData?.razorpay_order_id) {
-              supabase.auth.getSession().then(({ data: { session } }) => {
-                const currentToken = session?.access_token;
-                fetch(`${apiUrl}/api/payments/update-status`, {
-                  method: "PATCH",
-                  headers: {
-                    "Content-Type": "application/json",
-                    ...(currentToken ? { Authorization: `Bearer ${currentToken}` } : {})
-                  },
-                  body: JSON.stringify({
-                    razorpay_order_id: orderData.razorpay_order_id,
-                    status: "abandoned",
-                    failure_source: "user_closed_modal"
-                  })
-                }).catch(e => console.error("Failed to update status", e));
-              });
+              fetch(`${apiUrl}/api/payments/update-status`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_order_id: orderData.razorpay_order_id,
+                  status: "abandoned",
+                  failure_source: "user_closed_modal"
+                })
+              }).catch(e => console.error("Failed to update status", e));
             }
 
             setStep("plan");
