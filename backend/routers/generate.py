@@ -2,7 +2,7 @@ import os
 import uuid
 import asyncio
 import random
-from fastapi import APIRouter, HTTPException, Request, Header
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from models.request_models import GenerateRequest
 from services.resume_generator import generate_resume
@@ -17,7 +17,7 @@ _MAX_JD_CHARS     = 8_000
 
 @router.post("/generate")
 @limiter.limit("10/minute")
-async def generate_resume_endpoint(request: Request, payload: GenerateRequest, authorization: str = Header(None)):
+async def generate_resume_endpoint(request: Request, payload: GenerateRequest):
     # Size validation — reject before spending any LLM tokens
     if len(payload.resume_text) > _MAX_RESUME_CHARS:
         raise HTTPException(
@@ -32,17 +32,6 @@ async def generate_resume_endpoint(request: Request, payload: GenerateRequest, a
             detail=f"Job description is too large ({len(payload.job_description):,} characters). "
                    f"Maximum allowed is {_MAX_JD_CHARS:,} characters."
         )
-
-    # Decode the Supabase JWT to identify the user — used for fraud tracking and session ownership.
-    # This is non-blocking and fully isolated from the generation path.
-    user_id: str | None = None
-    if authorization and authorization.startswith("Bearer ") and sc.supabase:
-        token = authorization.split(" ", 1)[1]
-        try:
-            user_resp = await asyncio.to_thread(lambda: sc.supabase.auth.get_user(token))
-            user_id = user_resp.user.id if user_resp and user_resp.user else None
-        except Exception:
-            pass  # Never block generation for auth decode failures
 
     # Step 1: Generate the rewritten resume with Template v1 validation
     try:
@@ -82,10 +71,7 @@ async def generate_resume_endpoint(request: Request, payload: GenerateRequest, a
     # Step 4: Generate session_id locally — no DB round-trip, no content stored.
     # The full resume JSON (resume text, generated output, AI suggestions, job strategy, changes)
     # is sent directly to the client and stored in localStorage only.
-    # Only a minimal skeleton row {id, user_id} is persisted to Supabase for:
-    #   - feedback ownership validation (download_count tracking)
-    #   - payment session linking
-    #   - admin queue health count
+    # Only a minimal anonymous skeleton row {id} is persisted for analytics and admin health counts.
     session_id = str(uuid.uuid4())
     generated["session_id"] = session_id
 
@@ -97,8 +83,6 @@ async def generate_resume_endpoint(request: Request, payload: GenerateRequest, a
                     "id": session_id,
                     "generated_output": {"_category": generated.get("_category", "no_jd")}
                 }
-                if user_id:
-                    row["user_id"] = user_id
                 await asyncio.to_thread(
                     lambda: sc.supabase.table("resume_sessions").insert(row).execute()
                 )
