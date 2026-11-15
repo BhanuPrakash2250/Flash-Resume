@@ -636,10 +636,10 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
           {/* Header */}
           <div className="px-6 pt-16 pb-2 border-b border-surface-container-low text-center">
             <h2 className="text-2xl font-headline font-bold text-on-background">
-              {step === "initializing" ? "Loading..." : step === "auth" ? "Sign In to Continue" : step === "processing" ? "Processing..." : step === "student_verify" ? "Student Verification" : "Invest in Yourself"}
+              {step === "initializing" ? "Loading..." : step === "auth" ? "Account unavailable" : step === "processing" ? "Processing..." : step === "student_verify" ? "Student Verification" : "Invest in Yourself"}
             </h2>
             <p className="text-sm text-on-surface-variant mt-1 max-w-lg mx-auto">
-              {step === "initializing" ? "Please wait a moment." : step === "auth" ? "Use your Google account to access downloads." : step === "processing" ? "Securely setting up Razorpay..." : step === "student_verify" ? "Verify to unlock the ₹99 plan." : "Returns >>> Investment(paying for servers)"}
+              {step === "initializing" ? "Please wait a moment." : step === "auth" ? "Free resume tools do not require sign-in." : step === "processing" ? "Securely setting up Razorpay..." : step === "student_verify" ? "Verify to unlock the ₹99 plan." : "Returns >>> Investment(paying for servers)"}
             </p>
           </div>
 
@@ -653,16 +653,7 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
                 </motion.div>
               )}
 
-              {/* AUTH STEP — Google only */}
-              {step === "auth" && (
-                <motion.div key="auth" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                  {error && <p className="text-xs text-error bg-error/10 px-3 py-2 rounded-lg text-center">{error}</p>}
-
-                  <button
-                    id="pricing-google-signin-btn"
-                    onClick={handleGoogleLogin}
-                    disabled={loading}
-                    className="w-full bg-surface-container-lowest border-2 border-primary/40 hover:border-primary text-on-background font-bold py-4 rounded-xl hover:bg-surfac              {/* AUTH STEP — account sign-in removed; free resume tools remain available */}
+              {/* AUTH STEP — sign-in disabled */}
               {step === "auth" && (
                 <motion.div key="auth" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                   <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
@@ -677,10 +668,21 @@ export default function PricingPopup({ isOpen, onClose, onSuccess, initialPlan, 
                   >
                     Close
                   </button>
+                  <MiniReviewsMarquee />
                 </motion.div>
               )}
 
-/* Card */}
+              {/* PLAN STEP */}
+              {step === "plan" && (
+                <motion.div key="plan" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                  <MiniReviewsMarquee />
+                  <div className="flex flex-col md:grid md:grid-cols-2 lg:grid-cols-[repeat(3,240px)] lg:justify-center gap-3 md:gap-4 pt-2 pb-3 px-1">
+                    {/* pay_per_use card */}
+                    {PLANS.slice(0, 1).map((plan) => {
+                      const isSelected = selectedPlan === plan.id;
+                      return (
+                        <React.Fragment key={plan.id}>
+                          {/* Card */}
                           <div onClick={() => setSelectedPlan(plan.id)}
                             className={`relative w-full md:w-auto flex flex-col p-4 md:p-5 rounded-2xl md:rounded-3xl border-2 cursor-pointer transition-all duration-300 ${isSelected ? "border-transparent bg-gradient-to-b from-[#006859] to-[#12f8d7] shadow-xl md:scale-105 text-white" : plan.borderClass + " bg-surface-container-lowest text-on-background hover:border-primary/40 hover:shadow-md"}`}>
 
