@@ -1,6 +1,5 @@
 // FlashResume API Integration Layer
 // All backend calls with error handling and timeouts
-import { supabase } from "./supabase";
 
 function getApiBase() {
   const candidate = process.env.NEXT_PUBLIC_API_URL?.trim();
@@ -146,11 +145,7 @@ export async function analyzeResume(
   }
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (session?.access_token) {
-      headers["Authorization"] = `Bearer ${session.access_token}`;
-    }
 
     const res = await safeFetch(buildUrl("/api/analyze"), {
       method: "POST",
@@ -277,11 +272,7 @@ export async function generateResume(
   }
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (session?.access_token) {
-      headers["Authorization"] = `Bearer ${session.access_token}`;
-    }
 
     const res = await safeFetch(buildUrl("/api/generate"), {
       method: "POST",
