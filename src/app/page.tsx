@@ -31,10 +31,6 @@ import {
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { parseResume, analyzeResume } from "@/lib/api";
-import PricingPopup from "@/components/PricingPopup";
-import { supabase } from "@/lib/supabase";
-import { User } from "@supabase/supabase-js";
-import CreditBadge from "@/components/CreditBadge";
 
 import TemplatesCarousel from "@/components/TemplatesCarousel";
 import ModelSelector from "@/components/ModelSelector";
@@ -177,12 +173,9 @@ export default function App() {
   const [parsedText, setParsedText] = useState("");
   const [showParsedText, setShowParsedText] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const [showDownloadGate, setShowDownloadGate] = useState(false);
-  const [showBuyMoreCredits, setShowBuyMoreCredits] = useState(false);
-  const [selectedPricingPlan, setSelectedPricingPlan] = useState<"pay_per_use" | "bulk_offer" | "student" | null>(null);
   const [hoveredPlan, setHoveredPlan] = useState<string>("bulk_offer");
   const [totalSignups, setTotalSignups] = useState<number | null>(null);
-  const [currentUser] = useState<User | null>(null);
+  const currentUser: any = null;
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -199,16 +192,11 @@ export default function App() {
       document.removeEventListener("touchstart", handleClickOutside);
     };
   }, []);
-  const [credits, setCredits] = useState<number>(0);
-  const [fraudCounter, setFraudCounter] = useState<number>(0);
   const [analysisCountdown, setAnalysisCountdown] = useState<number | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [buckets, setBuckets] = useState<any[]>([]);
   const [optimizeMode, setOptimizeMode] = useState<"jd" | "manual" | "first_resume" | null>("jd");
-  const [referralCode, setReferralCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<"nav" | "dropdown" | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -254,96 +242,6 @@ export default function App() {
       document.removeEventListener("touchstart", handler);
     };
   }, []);
-
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const fetchAccountData = async () => {
-      // 1. Fetch referral code & fraud tracker counter
-      const { data: uData } = await supabase.from("users").select("referral_code, fraud_tracker_counter").eq("id", currentUser.id).single();
-      if (uData?.referral_code) setReferralCode(uData.referral_code);
-      if (uData?.fraud_tracker_counter !== undefined && uData?.fraud_tracker_counter !== null) {
-        setFraudCounter(uData.fraud_tracker_counter);
-      }
-
-      // 2. Fetch all active/queued/fallback buckets
-      const { data: bucketData } = await supabase
-        .from("credit_buckets")
-        .select("*")
-        .eq("user_id", currentUser.id)
-        .in("status", ["active", "queued", "fallback"])
-        .gt("remaining_credits", 0)
-        .order("created_at", { ascending: true });
-
-      if (bucketData) {
-        setBuckets(bucketData);
-        // Compute total credits
-        const total = bucketData.reduce((acc, b) => acc + b.remaining_credits, 0);
-        setCredits(total);
-      } else {
-        // Fallback to old table if migration hasn't run yet
-        const { data: oldData } = await supabase.from("users").select("credits_balance").eq("id", currentUser.id).single();
-        setCredits(oldData?.credits_balance || 0);
-      }
-    };
-
-    fetchAccountData();
-
-  }, [currentUser]);
-
-  const isBlocked = currentUser ? (fraudCounter >= 5 && credits <= 0) : false;
-
-  if (isBlocked) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#08110f] text-white px-6 py-12 relative overflow-hidden font-sans">
-        {/* Subtle background glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#006859]/20 rounded-full blur-[140px] pointer-events-none" />
-        
-        <div className="relative z-10 max-w-md w-full bg-white/5 border border-white/10 backdrop-blur-2xl rounded-3xl p-8 text-center shadow-2xl flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6">
-            <AlertCircle className="w-8 h-8 text-amber-400" />
-          </div>
-          
-          <h1 className="text-2xl font-bold font-headline mb-3 text-white">
-            Usage Limit Reached
-          </h1>
-          
-          <p className="text-sm text-white/75 leading-relaxed mb-8 font-medium">
-            Your free resume generation has reached limit. Upgrade or buy plan to continue the flash resume.
-          </p>
-          
-          <button
-            onClick={() => setShowBuyMoreCredits(true)}
-            className="w-full bg-gradient-to-r from-[#006859] to-[#12f8d7] text-white font-bold py-4 rounded-xl shadow-lg hover:opacity-95 transition-all transform active:scale-98 flex items-center justify-center gap-2 text-base"
-          >
-            Upgrade
-          </button>
-        </div>
-
-        {/* Buy More Credits popup — modal for purchasing */}
-        <PricingPopup
-          isOpen={showBuyMoreCredits}
-          onClose={() => setShowBuyMoreCredits(false)}
-          onSuccess={() => {
-            setShowBuyMoreCredits(false);
-            if (currentUser) {
-              supabase.from("users").select("credits_balance, fraud_tracker_counter").eq("id", currentUser.id).single()
-                .then(({ data }) => {
-                  if (data) {
-                    setCredits(data.credits_balance || 0);
-                    setFraudCounter(data.fraud_tracker_counter || 0);
-                  }
-                });
-            }
-          }}
-          forcePlanSelect={true}
-          prefetchedUser={currentUser}
-          prefetchedCredits={credits}
-          disableClose={true}
-        />
-      </div>
-    );
-  }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -694,7 +592,6 @@ export default function App() {
                     </div>
                   </button>
                 </div>
-                <CreditBadge onTopUpClick={() => { setSelectedPricingPlan(null); setShowDownloadGate(true); }} />
 
                 {/* Account Dropdown */}
                 <div className="relative" ref={accountDropdownRef}>
@@ -1367,173 +1264,6 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
         </section>
 
 
-        {/* Pricing Section */}
-        {currentUser && (
-          <section id="pricing" className="bg-surface py-32">
-            <div className="max-w-7xl mx-auto px-6 text-center mb-20">
-              <h2 className="font-headline text-4xl md:text-5xl font-bold text-on-background mb-4">Invest in yourself</h2>
-              {totalSignups && totalSignups > 0 && (
-                <p className="text-on-surface-variant text-lg">
-                  <span className="font-semibold text-[#006859]">
-                    {totalSignups.toLocaleString("en-IN")} users already joined
-                  </span>
-                </p>
-              )}
-            </div>
-            {/* Mobile: outer div scrolls, inner div provides pt-6 so badges have room */}
-            <div className="overflow-x-auto pb-12 sm:overflow-visible">
-              <div className="flex flex-nowrap sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-[1050px] mx-auto px-4 sm:px-6 pt-6 sm:pt-0">
-                {/* One-Time */}
-                <div
-                  onMouseEnter={() => setHoveredPlan("pay_per_use")}
-                  className={`flex-shrink-0 w-[280px] md:w-auto snap-center p-8 md:p-10 rounded-[2rem] flex flex-col transition-all duration-300 relative border-2 ${hoveredPlan === "pay_per_use" ? "border-transparent bg-gradient-to-b from-[#006859] to-[#12f8d7] shadow-2xl md:scale-105 z-10 text-white" : "bg-surface-container-low border-surface-container-high text-on-background"}`}
-                >
-                  {/* Selection Indicator */}
-                  <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${hoveredPlan === "pay_per_use" ? 'border-white bg-white scale-110' : 'border-on-surface-variant/30'}`}>
-                    {hoveredPlan === "pay_per_use" && <CheckCircle2 className="w-4 h-4 text-[#006859]" />}
-                  </div>
-
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-colors ${hoveredPlan === "pay_per_use" ? "bg-white/20 text-white" : "bg-surface-container-high"}`}>
-                    <CheckCircle2 className={`w-5 h-5 ${hoveredPlan === "pay_per_use" ? "text-white opacity-90" : "text-on-surface-variant"}`} />
-                  </div>
-                  <h3 className="font-headline text-2xl font-bold mb-1">One-Time</h3>
-                  <p className={`text-sm mb-4 ${hoveredPlan === "pay_per_use" ? "text-white/90" : "text-on-surface-variant"}`}>1 resume download</p>
-                  <div className="text-4xl font-black mb-1">₹29</div>
-                  <p className={`text-sm mb-8 ${hoveredPlan === "pay_per_use" ? "text-white/90" : "text-on-surface-variant"}`}>/10 Days</p>
-                  <ul className="space-y-3 mb-10 text-left flex-grow">
-                    <li className={`flex items-center gap-3 ${hoveredPlan === "pay_per_use" ? "text-white" : "text-on-surface-variant"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${hoveredPlan === "pay_per_use" ? "text-white" : "text-primary"}`} />
-                      10 Credits
-                    </li>
-                    <li className={`flex items-center gap-3 ${hoveredPlan === "pay_per_use" ? "text-white" : "text-on-surface-variant"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${hoveredPlan === "pay_per_use" ? "text-white" : "text-primary"}`} />
-                      Valid for 10 Days
-                    </li>
-                  </ul>
-                  <button
-                    onClick={() => { setSelectedPricingPlan("pay_per_use"); setShowDownloadGate(true); }}
-                    className={`w-full py-4 rounded-xl font-bold transition-colors ${hoveredPlan === "pay_per_use" ? "bg-white text-[#006859] shadow-lg shadow-black/5 hover:bg-white/90" : "border border-on-surface-variant/20 hover:bg-surface-container-high"}`}
-                  >
-                    Get Started
-                  </button>
-                </div>
-
-                {/* Student Plan — STUDENT OFFER */}
-                <div
-                  onMouseEnter={() => setHoveredPlan("student")}
-                  className={`flex-shrink-0 w-[280px] sm:w-auto snap-center p-8 md:p-10 rounded-[2rem] flex flex-col relative border-2 transition-all duration-300 ${hoveredPlan === "student" ? "border-transparent bg-gradient-to-b from-[#006859] to-[#12f8d7] shadow-2xl md:scale-105 z-10 text-white" : "bg-surface-container-low border-amber-400/60 text-on-background"}`}
-                >
-                  {/* Selection Indicator */}
-                  <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 z-20 ${hoveredPlan === "student" ? 'border-white bg-white scale-110' : 'border-amber-400/30'}`}>
-                    {hoveredPlan === "student" && <CheckCircle2 className="w-4 h-4 text-[#006859]" />}
-                  </div>
-
-                  <div className={`absolute -top-4 left-1/2 -translate-x-1/2 overflow-hidden flex items-center gap-1.5 text-[10px] font-black px-3 py-0.5 rounded-full shadow-lg whitespace-nowrap tracking-wider border z-20 bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-orange-500/40 border-orange-400/50`}>
-                    STUDENT OFFER
-                    <span className="relative bg-white/25 text-white rounded-full px-1.5 py-0 text-[9px] font-black tracking-wide border border-white/30">50% OFF</span>
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-colors ${hoveredPlan === "student" ? "bg-white/20 text-white" : "bg-amber-50 text-amber-500"}`}>
-                    <GraduationCap className={`w-5 h-5 ${hoveredPlan === "student" ? "text-white opacity-90" : "text-amber-500"}`} />
-                  </div>
-                  <h3 className="font-headline text-2xl font-bold mb-1">Student Plan</h3>
-                  <p className={`text-sm mb-4 transition-colors ${hoveredPlan === "student" ? "text-white/90" : "text-on-surface-variant"}`}>300 Credits (30 Resumes)</p>
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <p className={`text-sm line-through leading-none ${hoveredPlan === "student" ? "text-white/55" : "text-on-surface-variant opacity-60"}`}>₹199</p>
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none tracking-wide ${hoveredPlan === "student" ? "bg-white/25 text-white border border-white/30" : "bg-orange-500/15 text-orange-600 border border-orange-400/40"}`}>50% OFF</span>
-                  </div>
-                  <div className="text-4xl font-black mb-1">₹99</div>
-                  <p className={`text-sm mb-8 transition-colors ${hoveredPlan === "student" ? "text-white/90" : "text-on-surface-variant"}`}>/2 months</p>
-                  <ul className="space-y-3 mb-10 text-left flex-grow">
-                    <li className={`flex items-center gap-3 transition-colors ${hoveredPlan === "student" ? "text-white" : "text-on-surface-variant"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 transition-colors ${hoveredPlan === "student" ? "text-white" : "text-primary"}`} />
-                      300 Credits
-                    </li>
-                    <li className={`flex items-center gap-3 transition-colors ${hoveredPlan === "student" ? "text-white" : "text-on-surface-variant"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 transition-colors ${hoveredPlan === "student" ? "text-white" : "text-primary"}`} />
-                      Valid for 2 Months
-                    </li>
-                    <li className={`flex items-center gap-3 transition-colors ${hoveredPlan === "student" ? "text-white" : "text-on-surface-variant"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 transition-colors ${hoveredPlan === "student" ? "text-white" : "text-primary"}`} />
-                      All Premium Features
-                    </li>
-                    <li className="flex justify-center">
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-wide border shadow-sm whitespace-nowrap ${hoveredPlan === "student"
-                        ? "bg-gradient-to-r from-orange-500 to-amber-500 border-orange-400 text-white shadow-lg shadow-orange-500/20"
-                        : "bg-orange-500/10 border-orange-400/40 text-orange-600"
-                        }`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse flex-shrink-0" />
-                        Grab before {new Date(Date.now() + 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "/")}
-                      </div>
-                    </li>
-                  </ul>
-                  <button
-                    onClick={() => { setSelectedPricingPlan("student"); setShowDownloadGate(true); }}
-                    className={`w-full py-4 rounded-xl font-bold transition-all ${hoveredPlan === "student" ? "bg-white text-[#006859] shadow-lg shadow-black/5 hover:bg-white/90" : "border-2 border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
-                  >
-                    Claim Student Offer
-                  </button>
-                </div>
-
-                {/* Bulk Offer — BEST VALUE */}
-                <div
-                  onMouseEnter={() => setHoveredPlan("bulk_offer")}
-                  className={`flex-shrink-0 w-[280px] sm:w-auto snap-center p-8 md:p-10 rounded-[2rem] flex flex-col relative border-2 transition-all duration-300 ${hoveredPlan === "bulk_offer" ? "border-transparent bg-gradient-to-b from-[#006859] to-[#12f8d7] shadow-2xl shadow-primary/30 md:scale-105 z-10 text-white" : "bg-surface-container-lowest border-primary shadow-lg shadow-primary/5 text-on-background"}`}
-                >
-                  {/* Selection Indicator */}
-                  <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 z-20 ${hoveredPlan === "bulk_offer" ? 'border-white bg-white scale-110' : 'border-primary/30'}`}>
-                    {hoveredPlan === "bulk_offer" && <CheckCircle2 className="w-4 h-4 text-[#006859]" />}
-                  </div>
-
-                  <div className={`absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest whitespace-nowrap shadow-sm transition-colors ${hoveredPlan === "bulk_offer" ? "bg-white text-[#006859]" : "flash-gradient text-white"}`}>
-                    Bulk Offer
-                  </div>
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-colors ${hoveredPlan === "bulk_offer" ? "bg-white/20" : "bg-primary/10"}`}>
-                    <Package className={`w-5 h-5 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white fill-white/30" : "text-primary"}`} />
-                  </div>
-                  <h3 className="font-headline text-2xl font-bold mb-1">Bulk Offer</h3>
-                  <p className={`text-sm mb-4 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white/90" : "text-on-surface-variant"}`}>3000 Credits (300 Resumes)</p>
-                  {/* Strikethrough price */}
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <p className={`text-sm line-through leading-none ${hoveredPlan === "bulk_offer" ? "text-white/55" : "text-on-surface-variant opacity-60"}`}>₹1,500</p>
-                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none tracking-wide ${hoveredPlan === "bulk_offer" ? "bg-white/25 text-white border border-white/30" : "bg-primary/15 text-primary border border-primary/40"}`}>60% OFF</span>
-                  </div>
-                  <div className="text-4xl font-black mb-1">₹599</div>
-                  <p className={`text-sm mb-8 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white/90" : "text-on-surface-variant"}`}>/6 Months</p>
-                  <ul className="space-y-3 mb-10 text-left flex-grow">
-                    <li className={`flex items-center gap-3 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-on-background"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-primary"}`} />
-                      <span>3000 Credits</span>
-                    </li>
-                    <li className={`flex items-center gap-3 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-on-background"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-primary"}`} />
-                      <span>Valid for 6 Months</span>
-                    </li>
-                    <li className={`flex items-center gap-3 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-on-background"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-primary"}`} />
-                      <span>Just ₹2 per Resume</span>
-                    </li>
-                    <li className={`flex items-center gap-3 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-on-background"}`}>
-                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 transition-colors ${hoveredPlan === "bulk_offer" ? "text-white" : "text-primary"}`} />
-                      <span>All Premium Features</span>
-                    </li>
-                  </ul>
-                  <button
-                    onClick={() => { setSelectedPricingPlan("bulk_offer"); setShowDownloadGate(true); }}
-                    className={`w-full py-4 rounded-xl font-bold transition-all ${hoveredPlan === "bulk_offer" ? "bg-white text-[#006859] shadow-lg shadow-black/5 hover:bg-white/90" : "flash-gradient text-white hover:opacity-90"}`}
-                  >
-                    Claim Bulk Offer →
-                  </button>
-                </div>
-
-
-
-              </div>
-            </div>
-          </section>
-        )}
-
-
-
         {/* Reviews Section */}
         <section id="reviews" className="py-32">
           <div className="max-w-7xl mx-auto px-6">
@@ -1684,31 +1414,6 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
         </section>
       </main>
 
-      {/* Purchase Success Toast */}
-      {purchaseSuccess && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center gap-3 bg-on-background text-surface px-6 py-4 rounded-2xl shadow-2xl shadow-black/30 border border-white/10">
-            <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-bold text-sm">Credits Added Successfully!</p>
-              <p className="text-xs opacity-70 mt-0.5">Upload your resume above and click Generate to get started.</p>
-            </div>
-            <button
-              onClick={() => setPurchaseSuccess(false)}
-              className="ml-4 opacity-50 hover:opacity-100 transition-opacity"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Parsed Text Modal */}
       {showParsedText && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -1754,48 +1459,6 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
           </div>
         </div>
       </footer>
-      {/* Pricing Popup Modal */}
-      <PricingPopup
-        isOpen={showDownloadGate}
-        onClose={() => {
-          setShowDownloadGate(false);
-          setPurchaseSuccess(false);
-        }}
-        onSuccess={() => {
-          setShowDownloadGate(false);
-          // Refresh credits from Supabase immediately
-          if (currentUser) {
-            supabase.from("users").select("credits_balance").eq("id", currentUser.id).single()
-              .then(({ data }) => { if (data) setCredits(data.credits_balance); });
-          }
-          // Show success toast — do NOT redirect to /result
-          // (user purchased from home page, no resume session exists yet)
-          setPurchaseSuccess(true);
-          setTimeout(() => setPurchaseSuccess(false), 5000);
-        }}
-        initialPlan={selectedPricingPlan}
-        directPay={!!selectedPricingPlan}
-        prefetchedUser={currentUser}
-        prefetchedCredits={credits}
-      />
-      {/* Buy More Credits popup — always shows plan selection regardless of current credits */}
-      <PricingPopup
-        isOpen={showBuyMoreCredits}
-        onClose={() => setShowBuyMoreCredits(false)}
-        onSuccess={() => {
-          setShowBuyMoreCredits(false);
-          // Refresh credits from Supabase immediately
-          if (currentUser) {
-            supabase.from("users").select("credits_balance").eq("id", currentUser.id).single()
-              .then(({ data }) => { if (data) setCredits(data.credits_balance); });
-          }
-          setPurchaseSuccess(true);
-          setTimeout(() => setPurchaseSuccess(false), 5000);
-        }}
-        forcePlanSelect={true}
-        prefetchedUser={currentUser}
-        prefetchedCredits={credits}
-      />
     </div>
   );
 }
