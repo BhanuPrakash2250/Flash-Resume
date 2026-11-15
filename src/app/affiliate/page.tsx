@@ -1,18 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Copy, Check, LogIn, LogOut, Zap, Users, IndianRupee,
+  Copy, Check, Zap, Users, IndianRupee,
   TrendingUp, Clock, CheckCircle2, AlertCircle, Search,
   ExternalLink, Mail, Phone, ArrowRight, Loader2, Wallet, Gift,
 } from "lucide-react";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://flashresume.in";
 const COMMISSION_RATE = 30;
@@ -115,7 +110,7 @@ function AvatarFallback({ name, size = 40 }: { name: string; size?: number }) {
 // ─── main page ────────────────────────────────────────────────────────────
 
 export default function AffiliatePage() {
-  const [session, setSession] = useState<any>(null);
+  const session: any = null;
   const [affiliateData, setAffiliateData] = useState<AffiliateData | null>(null);
   const [publicAffiliates, setPublicAffiliates] = useState<PublicAffiliate[]>([]);
   const [search, setSearch] = useState("");
@@ -130,17 +125,13 @@ export default function AffiliatePage() {
   const [error, setError] = useState<string | null>(null);
   const [origin, setOrigin] = useState(SITE_URL);
 
-  // Load session + public list on mount
+  // Public affiliate overview only; account features are disabled without sign-in.
   useEffect(() => {
     if (typeof window !== "undefined") {
       setOrigin(window.location.origin);
     }
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     fetchPublicList();
-    return () => listener.subscription.unsubscribe();
+    setLoading(false);
   }, []);
 
   // When session changes, load affiliate data or trigger registration
@@ -209,18 +200,7 @@ export default function AffiliatePage() {
     }
   }
 
-  async function handleGoogleLogin() {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/affiliate` },
-    });
-  }
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setAffiliateData(null);
-    setPayoutResult(null);
-  }
 
   function copyLink() {
     if (!affiliateData) return;
@@ -301,17 +281,7 @@ export default function AffiliatePage() {
               className="hidden sm:flex items-center gap-1.5 text-xs text-[#006859] font-semibold hover:underline">
               <Mail className="w-3.5 h-3.5" /> flashresume.in@gmail.com
             </a>
-            {session ? (
-              <button onClick={handleLogout}
-                className="flex items-center gap-1.5 text-xs text-[#595c5d] hover:text-[#1a1a1a] font-semibold transition-colors">
-                <LogOut className="w-3.5 h-3.5" /> Sign out
-              </button>
-            ) : (
-              <button onClick={handleGoogleLogin}
-                className="flex items-center gap-1.5 text-xs bg-[#006859] text-white px-3.5 py-2 rounded-xl font-bold hover:bg-[#005245] transition-colors">
-                <LogIn className="w-3.5 h-3.5" /> Sign in
-              </button>
-            )}
+            <span className="text-xs text-[#8b9291] font-medium">Affiliate account features unavailable</span>
           </div>
         </div>
       </header>
@@ -338,7 +308,7 @@ export default function AffiliatePage() {
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mt-8">
             {[
-              { step: "01", title: "Sign in with Google", desc: "Get your unique affiliate link instantly — no approval needed." },
+              { step: "01", title: "Account service unavailable", desc: "Affiliate accounts, referral tracking and payouts are temporarily unavailable." },
               { step: "02", title: "Share your link", desc: "Share on LinkedIn, YouTube, WhatsApp — anywhere you have an audience." },
               { step: "03", title: "Get paid", desc: "Earn 30% on every first purchase. Withdraw to UPI within 24 hours." },
             ].map(({ step, title, desc }) => (
@@ -365,22 +335,10 @@ export default function AffiliatePage() {
             ))}
           </div>
 
-          {/* CTA if not logged in */}
-          {!session && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-              <button onClick={handleGoogleLogin}
-                className="mt-4 inline-flex items-center gap-3 bg-gradient-to-r from-[#006859] to-[#0d9e84] text-white font-bold px-8 py-4 rounded-2xl text-base shadow-xl shadow-[#006859]/25 hover:scale-[1.02] hover:shadow-2xl hover:shadow-[#006859]/30 transition-all duration-200">
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                </svg>
-                Join with Google — It&apos;s Free
-              </button>
-              <p className="text-xs text-[#595c5d] mt-3">No approval needed · Instant access · Free forever</p>
-            </motion.div>
-          )}
+          {/* Affiliate account services require authentication and are temporarily unavailable. */}
+          <div className="max-w-xl mx-auto mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+            The affiliate dashboard, account registration and payouts are unavailable while sign-in is disabled.
+          </div>
         </section>
 
         {/* ── Dashboard (logged in) ── */}
