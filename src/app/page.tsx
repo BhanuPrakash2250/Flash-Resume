@@ -2,12 +2,9 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import {
-  ArrowRight,
   Bolt,
-  Check,
   CheckCircle2,
   CloudUpload,
-  Rocket,
   Star,
   Upload,
   Verified,
@@ -15,15 +12,10 @@ import {
   Wand2,
   FileText,
   X,
-  Loader2,
-  Crosshair,
   Sparkles,
   PenLine,
-  SlidersHorizontal,
   GraduationCap,
   Briefcase,
-  Laptop,
-  Package,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -1016,7 +1008,7 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
                   name: "Rahul Verma",
                   role: "Marketing Specialist",
                   img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCPfj15XNt8XC7KiUq7HSu8kMnUpZdT0-3K3XhKNCP6MYPOjzPXHm8iGw-aOyBQ_9ghnoAiT5SCv_bXhyEvcgjFgbb4NTNiqdLUp_XTeJEy_zLhk8JhnSkER5-QQoP-a_I_hCLHSzRNq1EAgkfNgafppwDhA-FumFkoRgonIaTAi8U7psjLGOYdfT4cNL_xrxO1eThFxscDz875qAU5tUWRLtnvG-Bu5AAxuNA0lm6C0HrmvQqA-ELDfMPlOmJsfVzy1hDE-61hKQ8C",
-                  text: "₹99 is a steal for this value. I have seen agencies and other tools charging in 1000s still fail in giving results."
+                  text: "The best part is that I can create and improve my resume without paying for a subscription."
                 }
               ].map((review, idx) => (
                 <div
@@ -1071,7 +1063,7 @@ Pursuing or completed a degree in Computer Science, Engineering, or equivalent t
                   name: "Rahul Verma",
                   role: "Marketing Specialist",
                   img: "https://lh3.googleusercontent.com/aida-public/AB6AXuCPfj15XNt8XC7KiUq7HSu8kMnUpZdT0-3K3XhKNCP6MYPOjzPXHm8iGw-aOyBQ_9ghnoAiT5SCv_bXhyEvcgjFgbb4NTNiqdLUp_XTeJEy_zLhk8JhnSkER5-QQoP-a_I_hCLHSzRNq1EAgkfNgafppwDhA-FumFkoRgonIaTAi8U7psjLGOYdfT4cNL_xrxO1eThFxscDz875qAU5tUWRLtnvG-Bu5AAxuNA0lm6C0HrmvQqA-ELDfMPlOmJsfVzy1hDE-61hKQ8C",
-                  text: "₹99 is a steal for this value. I have seen agencies and other tools charging in 1000s still fail in giving results."
+                  text: "The best part is that I can create and improve my resume without paying for a subscription."
                 }
               ].map((review, idx) => (
                 <div key={idx} className="bg-surface-container-low p-8 rounded-3xl">
