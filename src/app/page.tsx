@@ -182,7 +182,7 @@ export default function App() {
   const [selectedPricingPlan, setSelectedPricingPlan] = useState<"pay_per_use" | "bulk_offer" | "student" | null>(null);
   const [hoveredPlan, setHoveredPlan] = useState<string>("bulk_offer");
   const [totalSignups, setTotalSignups] = useState<number | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser] = useState<User | null>(null);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -239,43 +239,6 @@ export default function App() {
       localStorage.setItem("flashresume_ref", refCode.trim().toUpperCase());
     }
   }, []);
-
-  // ── Referral Capture: Step 2 ─────────────────────────────────────────────
-  // When a user signs in, check if there's a stored referral code and apply it.
-  // This sets `referred_by` in the DB so the payment verifier can award the bonus.
-  useEffect(() => {
-    if (!currentUser) return;
-    const storedRef = localStorage.getItem("flashresume_ref");
-    if (!storedRef) return;
-
-    const applyReferral = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://flash-resume.onrender.com"}/api/user/apply-referral`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            referral_code: storedRef,
-          }),
-        });
-        const json = await res.json();
-        // Clear localStorage regardless — if skipped/error, no point retrying
-        localStorage.removeItem("flashresume_ref");
-        if (json.status === "ok") {
-          console.log("[Referral] Referral applied successfully.");
-        }
-      } catch (err) {
-        // Non-critical — never block the user
-        console.warn("[Referral] Could not apply referral code:", err);
-      }
-    };
-
-    applyReferral();
-  }, [currentUser]);
 
   useEffect(() => {
     const handler = (e: MouseEvent | TouchEvent) => {
@@ -856,8 +819,7 @@ export default function App() {
 
                               <button
                                 onClick={async () => {
-                                  await supabase.auth.signOut();
-                                  setCurrentUser(null);
+                                  // Account sign-out is unavailable because account sign-in is disabled.
                                   setShowAccountDropdown(false);
                                 }}
                                 className="w-full py-2.5 text-error text-sm font-bold rounded-xl hover:bg-error/10 transition-colors border border-error/20"
