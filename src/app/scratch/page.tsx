@@ -784,13 +784,9 @@ export default function ScratchPage() {
                       </div>
                     ) : (
                       <div className="p-4 text-center">
-                        <p className="text-sm text-on-surface-variant mb-3">Log in to view credits</p>
-                        <button
-                          onClick={() => { setShowAccountDropdown(false); setShowPricingPopup(true); }}
-                          className="w-full py-2 bg-primary text-white text-sm font-bold rounded-xl hover:opacity-90 transition-opacity"
-                        >
-                          Log In
-                        </button>
+                        <p className="text-sm text-on-surface-variant">
+                          Account credits are unavailable. Resume creation and downloads are available without signing in.
+                        </p>
                       </div>
                     )}
                   </motion.div>
